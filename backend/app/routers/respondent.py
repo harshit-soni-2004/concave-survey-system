@@ -28,6 +28,7 @@ from app.schemas.respondent import (
     AnswerSubmissionRequest,
     BatchTokensRequest,
     BatchTokensResponse,
+    TokenItem,
     PublicJoinResponse,
     RespondentSessionResponse,
     QuestionView,
@@ -47,6 +48,7 @@ def format_session_response(
         return RespondentSessionResponse(
             status="COMPLETED",
             token=resp.token,
+            survey_id=survey.id,
             survey_title=survey.title,
             survey_slug=survey.slug,
             is_test=resp.is_test,
@@ -60,6 +62,7 @@ def format_session_response(
         return RespondentSessionResponse(
             status="TERMINATED",
             token=resp.token,
+            survey_id=survey.id,
             survey_title=survey.title,
             survey_slug=survey.slug,
             is_test=resp.is_test,
@@ -73,6 +76,7 @@ def format_session_response(
         return RespondentSessionResponse(
             status="CLOSED",
             token=resp.token,
+            survey_id=survey.id,
             survey_title=survey.title,
             survey_slug=survey.slug,
             is_test=resp.is_test,
@@ -87,6 +91,7 @@ def format_session_response(
         return RespondentSessionResponse(
             status=resp.status,
             token=resp.token,
+            survey_id=survey.id,
             survey_title=survey.title,
             survey_slug=survey.slug,
             is_test=resp.is_test,
@@ -137,6 +142,7 @@ def format_session_response(
     return RespondentSessionResponse(
         status=resp.status,
         token=resp.token,
+        survey_id=survey.id,
         survey_title=survey.title,
         survey_slug=survey.slug,
         is_test=resp.is_test,

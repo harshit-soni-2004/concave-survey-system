@@ -6,6 +6,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { RespondentSession } from '../../core/models/survey.model';
 import { QuestionRendererComponent } from './question-renderer/question-renderer.component';
 
@@ -25,8 +26,15 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
       <!-- Top Header & Progress -->
       <header class="survey-top-bar" *ngIf="session">
         <div class="bar-content">
-          <span class="study-title">{{ session.survey_title }}</span>
-          <span *ngIf="session.is_test" class="test-pill">PREVIEW / TEST MODE</span>
+          <div class="header-left">
+            <span class="study-title">{{ session.survey_title }}</span>
+            <span *ngIf="session.is_test" class="test-pill">PREVIEW / TEST MODE</span>
+          </div>
+          <div class="header-right" *ngIf="session.is_test || authService.isLoggedIn()">
+            <button mat-button color="primary" class="nav-back-btn" (click)="goToDashboard()">
+              <mat-icon>arrow_back</mat-icon> Return to Dashboard
+            </button>
+          </div>
         </div>
         <mat-progress-bar
           *ngIf="session.screen === 'Question' && session.question"
@@ -66,6 +74,17 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
             </div>
             <h2>Thank you!</h2>
             <p class="end-desc">Your responses have been recorded successfully. We appreciate your valuable time and participation.</p>
+            <div class="end-actions">
+              <button mat-raised-button color="primary" (click)="goToDashboard()" *ngIf="session?.is_test || authService.isLoggedIn()">
+                <mat-icon>dashboard</mat-icon> Return to Dashboard
+              </button>
+              <button mat-stroked-button color="primary" (click)="retakeSurvey()" *ngIf="session?.is_test">
+                <mat-icon>refresh</mat-icon> Retake Test
+              </button>
+              <button mat-stroked-button (click)="goToHome()" *ngIf="!session?.is_test && !authService.isLoggedIn()">
+                <mat-icon>home</mat-icon> Return Home
+              </button>
+            </div>
           </mat-card>
         </div>
 
@@ -83,6 +102,17 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
             <p class="end-desc" *ngIf="!session?.termination_reason">
               Thank you for your interest. Unfortunately, this study has reached its required quota for your demographic segment.
             </p>
+            <div class="end-actions">
+              <button mat-raised-button color="primary" (click)="goToDashboard()" *ngIf="session?.is_test || authService.isLoggedIn()">
+                <mat-icon>dashboard</mat-icon> Return to Dashboard
+              </button>
+              <button mat-stroked-button color="primary" (click)="retakeSurvey()" *ngIf="session?.is_test">
+                <mat-icon>refresh</mat-icon> Retake Test
+              </button>
+              <button mat-stroked-button (click)="goToHome()" *ngIf="!session?.is_test && !authService.isLoggedIn()">
+                <mat-icon>home</mat-icon> Return Home
+              </button>
+            </div>
           </mat-card>
         </div>
 
@@ -94,6 +124,14 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
             </div>
             <h2>Already Completed</h2>
             <p class="end-desc">You have already submitted your response for this survey. Each participant can submit only once.</p>
+            <div class="end-actions">
+              <button mat-raised-button color="primary" (click)="goToDashboard()" *ngIf="session?.is_test || authService.isLoggedIn()">
+                <mat-icon>dashboard</mat-icon> Return to Dashboard
+              </button>
+              <button mat-stroked-button (click)="goToHome()" *ngIf="!session?.is_test && !authService.isLoggedIn()">
+                <mat-icon>home</mat-icon> Return Home
+              </button>
+            </div>
           </mat-card>
         </div>
 
@@ -105,6 +143,14 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
             </div>
             <h2>Survey Closed</h2>
             <p class="end-desc">This survey has completed its collection target or passed its deadline and is no longer accepting new responses.</p>
+            <div class="end-actions">
+              <button mat-raised-button color="primary" (click)="goToDashboard()" *ngIf="session?.is_test || authService.isLoggedIn()">
+                <mat-icon>dashboard</mat-icon> Return to Dashboard
+              </button>
+              <button mat-stroked-button (click)="goToHome()" *ngIf="!session?.is_test && !authService.isLoggedIn()">
+                <mat-icon>home</mat-icon> Return Home
+              </button>
+            </div>
           </mat-card>
         </div>
       </main>
@@ -141,6 +187,28 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+    }
+    .nav-back-btn {
+      font-size: 13px;
+      height: 32px;
+      line-height: 32px;
+    }
+    .end-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 24px;
+      flex-wrap: wrap;
     }
     .test-pill {
       font-size: 11px;
@@ -244,7 +312,8 @@ export class RespondentContainerComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private apiService: ApiService
+    private apiService: ApiService,
+    public authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -328,5 +397,33 @@ export class RespondentContainerComponent implements OnInit {
         alert(err?.error?.detail || 'Cannot go back.');
       }
     });
+  }
+
+  goToDashboard(): void {
+    if (this.session?.survey_id) {
+      this.router.navigate(['/admin/surveys', this.session.survey_id]);
+    } else {
+      this.router.navigate(['/admin/surveys']);
+    }
+  }
+
+  goToHome(): void {
+    this.router.navigate(['/admin/login']);
+  }
+
+  retakeSurvey(): void {
+    if (this.session?.survey_id) {
+      this.loading = true;
+      this.apiService.createTestSession(this.session.survey_id).subscribe({
+        next: res => {
+          window.location.href = res.url;
+        },
+        error: () => {
+          this.goToDashboard();
+        }
+      });
+    } else {
+      this.goToDashboard();
+    }
   }
 }

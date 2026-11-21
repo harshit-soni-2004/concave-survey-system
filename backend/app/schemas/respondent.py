@@ -44,6 +44,7 @@ class QuestionView(BaseModel):
 class RespondentSessionResponse(BaseModel):
     status: str # NOT_STARTED, IN_PROGRESS, COMPLETED, TERMINATED, CLOSED
     token: str
+    survey_id: Optional[int] = None
     survey_title: str
     survey_slug: str
     is_test: bool

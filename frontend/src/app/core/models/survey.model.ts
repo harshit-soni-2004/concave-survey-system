@@ -127,6 +127,7 @@ export interface QuestionView {
 export interface RespondentSession {
   status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'TERMINATED' | 'CLOSED';
   token: string;
+  survey_id?: number;
   survey_title: string;
   survey_slug: string;
   is_test: boolean;
