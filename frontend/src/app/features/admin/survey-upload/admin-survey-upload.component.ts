@@ -224,7 +224,8 @@ export class AdminSurveyUploadComponent {
   constructor(private apiService: ApiService, private router: Router) {}
 
   loadSampleValid(): void {
-    this.rawContent = `<survey id="brand_pulse_2026" title="Brand Perception Study 2026" target="150">
+    const suffix = Math.floor(Math.random() * 900 + 100);
+    this.rawContent = `<survey id="study_${suffix}" title="Brand Perception Study ${suffix}" target="150">
 
 <question id="q0" type="info">
   <text>Welcome to our annual brand study. Your insights help improve digital services.</text>
@@ -273,6 +274,7 @@ export class AdminSurveyUploadComponent {
 </survey>`;
     this.validationErrors = [];
     this.isValid = null;
+    this.onValidate();
   }
 
   loadSampleBroken(): void {
@@ -297,6 +299,7 @@ export class AdminSurveyUploadComponent {
 </survey>`;
     this.validationErrors = [];
     this.isValid = null;
+    this.onValidate();
   }
 
   onValidate(): void {
@@ -327,7 +330,14 @@ export class AdminSurveyUploadComponent {
       error: err => {
         this.loading = false;
         this.isValid = false;
-        this.validationErrors = err?.error?.detail?.errors || [{ line: 1, message: err?.error?.detail || 'Upload failed' }];
+        const detail = err?.error?.detail;
+        if (detail?.errors) {
+          this.validationErrors = detail.errors;
+        } else if (typeof detail === 'string') {
+          this.validationErrors = [{ line: 1, message: detail }];
+        } else {
+          this.validationErrors = [{ line: 1, message: 'Upload failed. Please check questionnaire parameters.' }];
+        }
       }
     });
   }

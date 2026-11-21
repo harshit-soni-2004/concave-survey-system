@@ -52,6 +52,7 @@ class SurveyListItem(BaseModel):
     status: str
     closed_reason: Optional[str] = None
     target: int
+    completed_count: int = 0
     active_version_id: Optional[int] = None
     created_by: Optional[int] = None
     deadline_at: Optional[datetime] = None

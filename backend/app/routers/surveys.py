@@ -8,6 +8,7 @@ from app.models.admin_user import AdminUser
 from app.models.survey import Survey
 from app.models.survey_version import SurveyVersion
 from app.models.quota import Quota
+from app.models.respondent import Respondent
 from app.parser.parser import parse_questionnaire
 from app.parser.validator import validate_questionnaire_text, validate_questionnaire_ast
 from app.schemas.survey import (
@@ -129,7 +130,16 @@ def list_surveys(
     current_user: AdminUser = Depends(require_role(["admin", "researcher"]))
 ):
     surveys = db.query(Survey).order_by(Survey.created_at.desc()).all()
-    return surveys
+    res = []
+    for s in surveys:
+        cnt = db.query(Respondent).filter(
+            Respondent.survey_id == s.id,
+            Respondent.status == "COMPLETED",
+            Respondent.is_test == False
+        ).count()
+        setattr(s, "completed_count", cnt)
+        res.append(s)
+    return res
 
 @router.get("/{survey_id}", response_model=SurveyDetailResponse)
 def get_survey(

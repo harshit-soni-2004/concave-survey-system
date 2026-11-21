@@ -75,7 +75,7 @@ import { SurveyListItem } from '../../../core/models/survey.model';
             <td mat-cell *matCellDef="let s">
               <div class="progress-col">
                 <div class="counts">
-                  <strong>{{ s.completed_count }}</strong> / {{ s.target }}
+                  <strong>{{ s.completed_count || 0 }}</strong> / {{ s.target }}
                   <span class="percent">({{ getPercent(s) }}%)</span>
                 </div>
                 <mat-progress-bar mode="determinate" [value]="getPercent(s)"></mat-progress-bar>
@@ -238,6 +238,6 @@ export class AdminSurveyListComponent implements OnInit {
 
   getPercent(s: SurveyListItem): number {
     if (!s.target || s.target <= 0) return 0;
-    return Math.min(100, Math.round((s.completed_count / s.target) * 100));
+    return Math.min(100, Math.round(((s.completed_count || 0) / s.target) * 100));
   }
 }

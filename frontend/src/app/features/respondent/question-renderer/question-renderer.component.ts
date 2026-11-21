@@ -48,9 +48,16 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
         <!-- 1. Single / 11. YesNo / 12. Consent -->
         <div *ngIf="question.type === 'single' || question.type === 'yesno' || question.type === 'consent'" class="options-group">
           <mat-radio-group [(ngModel)]="currentAnswer" class="radio-vertical">
-            <mat-radio-button *ngFor="let opt of question.options" [value]="opt.text" class="opt-radio">
-              {{ opt.text }}
-            </mat-radio-button>
+            <div
+              *ngFor="let opt of question.options"
+              class="option-card"
+              [class.selected]="currentAnswer === opt.text"
+              (click)="onSelectSingleOption(opt.text)"
+            >
+              <mat-radio-button [value]="opt.text" class="opt-radio">
+                <span class="option-label-text">{{ opt.text }}</span>
+              </mat-radio-button>
+            </div>
           </mat-radio-group>
           <!-- Other Text Box for Single -->
           <div *ngIf="hasOtherSelected()" class="other-input-wrap">
@@ -63,13 +70,17 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
 
         <!-- 2. Multi Select -->
         <div *ngIf="question.type === 'multi'" class="options-group">
-          <div *ngFor="let opt of question.options" class="checkbox-row">
+          <div
+            *ngFor="let opt of question.options"
+            class="option-card checkbox-card"
+            [class.selected]="isMultiOptionChecked(opt.text)"
+            (click)="onCardMultiToggle(opt)"
+          >
             <mat-checkbox
               [checked]="isMultiOptionChecked(opt.text)"
-              (change)="onMultiToggle(opt, $event.checked)"
               class="opt-checkbox"
             >
-              {{ opt.text }}
+              <span class="option-label-text">{{ opt.text }}</span>
             </mat-checkbox>
           </div>
           <!-- Other Text Box for Multi -->
@@ -315,15 +326,44 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
       gap: 12px;
     }
     .opt-radio, .checkbox-row {
-      padding: 10px 14px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      transition: all 0.15s ease;
+      width: 100%;
     }
-    .opt-radio:hover, .checkbox-row:hover {
+    .option-card {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .option-card:hover {
       background: #f1f5f9;
-      border-color: #cbd5e1;
+      border-color: #94a3b8;
+    }
+    .option-card.selected {
+      background: #eff6ff;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px #2563eb;
+    }
+    .option-card mat-radio-button,
+    .option-card mat-checkbox {
+      width: 100%;
+      pointer-events: none;
+    }
+    .option-label-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: #1e293b;
+      margin-left: 4px;
+    }
+    .option-card.selected .option-label-text {
+      font-weight: 600;
+      color: #1d4ed8;
     }
     .other-input-wrap {
       margin-top: 12px;
@@ -514,6 +554,16 @@ export class QuestionRendererComponent implements OnChanges {
 
   isMultiOptionChecked(optText: string): boolean {
     return this.multiSelected.includes(optText);
+  }
+
+  onSelectSingleOption(text: string): void {
+    this.currentAnswer = text;
+    this.errorMessage = '';
+  }
+
+  onCardMultiToggle(opt: QuestionOption): void {
+    const isChecked = this.isMultiOptionChecked(opt.text);
+    this.onMultiToggle(opt, !isChecked);
   }
 
   onMultiToggle(opt: QuestionOption, checked: boolean): void {

@@ -3,7 +3,10 @@ import re
 import csv
 from typing import Any, Dict, List, Tuple
 from sqlalchemy.orm import Session
+from datetime import datetime
 from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 from app.models.survey import Survey
 from app.models.survey_version import SurveyVersion
 from app.models.respondent import Respondent
@@ -175,10 +178,78 @@ def export_survey_xlsx(survey: Survey, db: Session) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Responses"
+    ws.views.sheetView[0].showGridLines = True
 
-    ws.append(headers)
-    for r in rows:
-        ws.append(r)
+    num_cols = max(len(headers), 1)
+
+    # 1. Row 1: Deep Navy Header Title Banner
+    ws.row_dimensions[1].height = 38
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
+    title_cell = ws.cell(row=1, column=1, value=f"  Survey Response Dataset • {survey.title}")
+    title_cell.font = Font(name="Segoe UI", size=14, bold=True, color="FFFFFF")
+    title_cell.fill = PatternFill(start_color="102A43", end_color="102A43", fill_type="solid")
+    title_cell.alignment = Alignment(vertical="center", horizontal="left")
+
+    # 2. Row 2: Metadata / Subtitle Banner
+    ws.row_dimensions[2].height = 22
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
+    now_str = datetime.utcnow().strftime("%b %d, %Y at %H:%M UTC")
+    sub_cell = ws.cell(row=2, column=1, value=f"  Exported on {now_str} • {len(rows)} Completed Non-Test Responses • Survey Target: {survey.target}")
+    sub_cell.font = Font(name="Segoe UI", size=9, italic=True, color="486581")
+    sub_cell.fill = PatternFill(start_color="F0F4F8", end_color="F0F4F8", fill_type="solid")
+    sub_cell.alignment = Alignment(vertical="center", horizontal="left")
+
+    # 3. Row 3: Blank Spacer Row
+    ws.row_dimensions[3].height = 10
+
+    # 4. Row 4: Professional Table Column Headers
+    ws.row_dimensions[4].height = 28
+    hdr_fill = PatternFill(start_color="2B6CB0", end_color="2B6CB0", fill_type="solid")
+    hdr_font = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
+    hdr_align = Alignment(vertical="center", horizontal="center", wrap_text=True)
+
+    thin_border = Border(
+        left=Side(style="thin", color="E2E8F0"),
+        right=Side(style="thin", color="E2E8F0"),
+        top=Side(style="thin", color="E2E8F0"),
+        bottom=Side(style="thin", color="E2E8F0")
+    )
+
+    for col_idx, hdr in enumerate(headers, start=1):
+        c = ws.cell(row=4, column=col_idx, value=hdr)
+        c.fill = hdr_fill
+        c.font = hdr_font
+        c.alignment = hdr_align
+        c.border = thin_border
+
+    # 5. Row 5+: Data Rows with Zebra Striping
+    if rows:
+        for r_idx, r_data in enumerate(rows, start=5):
+            ws.row_dimensions[r_idx].height = 22
+            row_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid") if r_idx % 2 == 1 else PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+            for c_idx, val in enumerate(r_data, start=1):
+                cell = ws.cell(row=r_idx, column=c_idx, value=val)
+                cell.fill = row_fill
+                cell.font = Font(name="Segoe UI", size=9.5, color="1E293B")
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="center", horizontal="center" if c_idx in (1, 2) else "left")
+    else:
+        ws.row_dimensions[5].height = 24
+        empty_cell = ws.cell(row=5, column=1, value="(No completed non-test responses yet)")
+        empty_cell.font = Font(name="Segoe UI", size=10, italic=True, color="94A3B8")
+        empty_cell.alignment = Alignment(vertical="center", horizontal="left")
+
+    # 6. Auto-fit column widths with padding
+    for col_idx in range(1, num_cols + 1):
+        col_letter = get_column_letter(col_idx)
+        val_lens = [len(str(ws.cell(row=4, column=col_idx).value or ""))]
+        for r_idx in range(5, min(len(rows) + 5, 25)):
+            val_lens.append(len(str(ws.cell(row=r_idx, column=col_idx).value or "")))
+        max_len = max(val_lens) if val_lens else 10
+        ws.column_dimensions[col_letter].width = min(max(max_len + 4, 15), 55)
+
+    # 7. Lock header row on scroll
+    ws.freeze_panes = "A5"
 
     out = io.BytesIO()
     wb.save(out)
