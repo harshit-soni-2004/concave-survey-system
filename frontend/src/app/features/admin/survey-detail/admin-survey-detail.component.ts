@@ -105,9 +105,15 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
             <span class="meta-label">Public Participation Link</span>
             <div class="link-row">
               <code class="link-code">{{ getPublicUrl() }}</code>
-              <button mat-icon-button (click)="copyText(getPublicUrl(), 'Participation link copied!')">
+              <button mat-icon-button (click)="copyText(getPublicUrl(), 'Participation link copied!')" title="Copy Link">
                 <mat-icon>content_copy</mat-icon>
               </button>
+              <a mat-icon-button [href]="getWhatsAppShareUrl(getPublicUrl())" target="_blank" title="Share via WhatsApp" class="share-icon wa-icon">
+                <mat-icon>chat</mat-icon>
+              </a>
+              <a mat-icon-button [href]="getEmailShareUrl(getPublicUrl())" title="Share via Email" class="share-icon email-icon">
+                <mat-icon>email</mat-icon>
+              </a>
             </div>
           </div>
         </div>
@@ -197,9 +203,20 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
               <div class="token-scroll">
                 <div *ngFor="let tok of generatedTokens" class="token-line">
                   <span class="url-text">{{ getFullUrl(tok.url) }}</span>
-                  <button mat-icon-button (click)="copyText(getFullUrl(tok.url), 'Link copied!')">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
+                  <div class="action-btn-group">
+                    <button mat-icon-button (click)="copyText(getFullUrl(tok.url), 'Link copied!')" title="Copy Link">
+                      <mat-icon>content_copy</mat-icon>
+                    </button>
+                    <a mat-icon-button [href]="getWhatsAppShareUrl(getFullUrl(tok.url))" target="_blank" title="Share via WhatsApp" class="share-icon wa-icon">
+                      <mat-icon>chat</mat-icon>
+                    </a>
+                    <a mat-icon-button [href]="getEmailShareUrl(getFullUrl(tok.url))" title="Share via Email" class="share-icon email-icon">
+                      <mat-icon>email</mat-icon>
+                    </a>
+                    <a mat-icon-button [href]="getFullUrl(tok.url)" target="_blank" title="Open Link" class="share-icon">
+                      <mat-icon>open_in_new</mat-icon>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -444,6 +461,30 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .share-icon {
+      color: #64748b;
+      width: 32px;
+      height: 32px;
+      line-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .share-icon:hover {
+      color: #0f172a;
+    }
+    .wa-icon:hover {
+      color: #16a34a !important;
+    }
+    .email-icon:hover {
+      color: #2563eb !important;
+    }
     .export-card {
       padding: 16px;
       background: #ffffff;
@@ -614,5 +655,18 @@ export class AdminSurveyDetailComponent implements OnInit {
     const all = this.generatedTokens.map(t => this.getFullUrl(t.url)).join('\n');
     navigator.clipboard.writeText(all);
     this.snackBar.open('All links copied to clipboard.', 'Close', { duration: 2000 });
+  }
+
+  getWhatsAppShareUrl(url: string): string {
+    const title = this.survey?.title || 'our survey';
+    const text = encodeURIComponent(`Hello! Please take a moment to participate in our study "${title}":\n${url}`);
+    return `https://api.whatsapp.com/send?text=${text}`;
+  }
+
+  getEmailShareUrl(url: string): string {
+    const title = this.survey?.title || 'Survey';
+    const subject = encodeURIComponent(`Survey Invitation: ${title}`);
+    const body = encodeURIComponent(`Hello,\n\nYou have been invited to participate in the study "${title}".\n\nPlease complete the survey by opening the link below:\n${url}\n\nThank you for your valuable feedback!`);
+    return `mailto:?subject=${subject}&body=${body}`;
   }
 }
