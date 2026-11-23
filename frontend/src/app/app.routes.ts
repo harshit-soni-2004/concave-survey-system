@@ -26,6 +26,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/survey-list/admin-survey-list.component').then(m => m.AdminSurveyListComponent)
       },
       {
+        path: 'analytics',
+        loadComponent: () => import('./features/admin/analytics/admin-analytics.component').then(m => m.AdminAnalyticsComponent)
+      },
+      {
+        path: 'analytics/:id',
+        loadComponent: () => import('./features/admin/analytics/admin-analytics.component').then(m => m.AdminAnalyticsComponent)
+      },
+      {
         path: 'upload',
         loadComponent: () => import('./features/admin/survey-upload/admin-survey-upload.component').then(m => m.AdminSurveyUploadComponent)
       },

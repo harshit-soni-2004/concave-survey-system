@@ -74,6 +74,16 @@ import { Subscription, interval } from 'rxjs';
           </a>
 
           <a 
+            routerLink="/admin/analytics" 
+            routerLinkActive="active-nav" 
+            class="nav-link-item" 
+            title="In-Depth Questionnaire Analytics"
+            (click)="closeMobileNav()">
+            <mat-icon class="nav-icon">insights</mat-icon>
+            <span class="nav-label" *ngIf="!isCollapsed">Analytics</span>
+          </a>
+
+          <a 
             routerLink="/admin/upload" 
             routerLinkActive="active-nav" 
             class="nav-link-item" 
