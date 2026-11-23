@@ -60,6 +60,13 @@ import {
                 (ngModelChange)="onSurveyChange($event)"
                 panelClass="custom-select-panel"
               >
+                <mat-select-trigger>
+                  <div class="selected-study-trigger" *ngIf="selectedSurvey">
+                    <span class="trigger-title">{{ selectedSurvey.title }}</span>
+                    <span class="trigger-badge" [ngClass]="selectedSurvey.status.toLowerCase()">{{ selectedSurvey.status }}</span>
+                    <span class="trigger-count">({{ selectedSurvey.completed_count || 0 }} completes)</span>
+                  </div>
+                </mat-select-trigger>
                 <mat-option *ngFor="let s of surveys" [value]="s.id">
                   <div class="study-option-item">
                     <span class="opt-title">{{ s.title }}</span>
@@ -530,15 +537,65 @@ import {
     .study-select-field {
       width: 100%;
     }
+    .selected-study-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13.5px;
+      color: #F8F8FC !important;
+      font-weight: 600;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .trigger-title {
+      font-weight: 700;
+      color: #F8F8FC !important;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .trigger-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .trigger-badge.live {
+      background: rgba(52, 211, 153, 0.2);
+      color: #34D399;
+      border: 1px solid rgba(52, 211, 153, 0.4);
+    }
+    .trigger-badge.draft {
+      background: rgba(251, 191, 36, 0.2);
+      color: #FBBF24;
+      border: 1px solid rgba(251, 191, 36, 0.4);
+    }
+    .trigger-badge.closed {
+      background: rgba(255, 255, 255, 0.1);
+      color: #9A9AB5;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .trigger-count {
+      font-size: 11.5px;
+      color: #A78BFA;
+      font-family: var(--font-mono);
+      margin-left: auto;
+    }
     .study-option-item {
       display: flex;
       align-items: center;
       gap: 10px;
       font-size: 14px;
+      width: 100%;
     }
     .opt-title {
       font-weight: 600;
-      color: var(--color-text);
+      color: #F8F8FC !important;
     }
     .opt-badge {
       font-size: 10px;
@@ -1265,6 +1322,10 @@ import {
 export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   surveys: SurveyListItem[] = [];
   selectedSurveyId: number | null = null;
+
+  get selectedSurvey(): SurveyListItem | undefined {
+    return this.surveys.find(s => s.id === this.selectedSurveyId);
+  }
   analytics: SurveyAnalyticsResponse | null = null;
   loading = false;
   searchQuery = '';
