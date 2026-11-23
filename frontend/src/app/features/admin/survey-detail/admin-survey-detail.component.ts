@@ -34,7 +34,7 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
     <div class="detail-container" *ngIf="survey">
       <!-- Top Bar -->
       <div class="top-nav">
-        <button mat-button routerLink="/admin/surveys">
+        <button mat-button routerLink="/admin/surveys" class="back-link-btn">
           <mat-icon>arrow_back</mat-icon> All Surveys
         </button>
         <span class="spacer"></span>
@@ -110,7 +110,7 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
             <span class="meta-label">Public Participation Link</span>
             <div class="link-row">
               <code class="link-code">{{ getPublicUrl() }}</code>
-              <button mat-icon-button (click)="copyText(getPublicUrl(), 'Participation link copied!')" title="Copy Link">
+              <button mat-icon-button (click)="copyText(getPublicUrl(), 'Participation link copied!')" title="Copy Link" class="share-icon copy-icon">
                 <mat-icon>content_copy</mat-icon>
               </button>
               <a mat-icon-button [href]="getWhatsAppShareUrl(getPublicUrl())" target="_blank" title="Share via WhatsApp" class="share-icon wa-icon">
@@ -224,7 +224,7 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
                 <div *ngFor="let tok of generatedTokens" class="token-line">
                   <span class="url-text">{{ getFullUrl(tok.url) }}</span>
                   <div class="action-btn-group">
-                    <button mat-icon-button (click)="copyText(getFullUrl(tok.url), 'Link copied!')" title="Copy Link">
+                    <button mat-icon-button (click)="copyText(getFullUrl(tok.url), 'Link copied!')" title="Copy Link" class="share-icon copy-icon">
                       <mat-icon>content_copy</mat-icon>
                     </button>
                     <a mat-icon-button [href]="getWhatsAppShareUrl(getFullUrl(tok.url))" target="_blank" title="Share via WhatsApp" class="share-icon wa-icon">
@@ -233,7 +233,7 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
                     <a mat-icon-button [href]="getEmailShareUrl(getFullUrl(tok.url))" title="Share via Email" class="share-icon email-icon">
                       <mat-icon>email</mat-icon>
                     </a>
-                    <a mat-icon-button [href]="getFullUrl(tok.url)" target="_blank" title="Open Link" class="share-icon">
+                    <a mat-icon-button [href]="getFullUrl(tok.url)" target="_blank" title="Open Link" class="share-icon open-icon">
                       <mat-icon>open_in_new</mat-icon>
                     </a>
                   </div>
@@ -269,6 +269,41 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       display: flex;
       align-items: center;
       margin-bottom: 16px;
+    }
+    .back-link-btn {
+      color: var(--color-text) !important;
+      font-weight: 600 !important;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s ease;
+      opacity: 0.9;
+    }
+    .back-link-btn:hover {
+      color: var(--color-primary) !important;
+      background: var(--color-surface-raised) !important;
+      opacity: 1;
+    }
+    .back-link-btn mat-icon {
+      color: var(--color-text-muted);
+      transition: color 0.2s ease;
+    }
+    .back-link-btn:hover mat-icon {
+      color: var(--color-primary);
+    }
+    mat-card-title, .mat-mdc-card-title {
+      color: var(--color-text) !important;
+      font-size: 18px !important;
+      font-weight: 700 !important;
+      letter-spacing: -0.01em;
+    }
+    mat-card-subtitle, .mat-mdc-card-subtitle {
+      color: var(--color-text-muted) !important;
+      font-size: 13px !important;
+      margin-top: 4px !important;
+      display: block;
     }
     .spacer {
       flex: 1;
@@ -364,10 +399,11 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum";
     }
-    .deadline-row, .link-row {
+    .link-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: nowrap;
     }
     .deadline-edit-row {
       display: flex;
@@ -389,7 +425,8 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 280px;
+      max-width: 240px;
+      flex-shrink: 1;
     }
     .grid-2col {
       display: grid;
@@ -536,26 +573,51 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
     .action-btn-group {
       display: flex;
       align-items: center;
-      gap: 2px;
+      gap: 4px;
       flex-shrink: 0;
     }
     .share-icon {
       color: var(--color-text-muted);
-      width: 32px;
-      height: 32px;
-      line-height: 32px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      width: 36px !important;
+      height: 36px !important;
+      min-width: 36px !important;
+      min-height: 36px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 8px;
+      flex-shrink: 0 !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
+      transition: all 0.2s ease;
+    }
+    .share-icon .mat-icon {
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+      line-height: 20px !important;
+      margin: 0 !important;
+      display: inline-block !important;
     }
     .share-icon:hover {
+      background: var(--color-surface-raised) !important;
       color: var(--color-primary);
     }
-    .wa-icon:hover {
+    .wa-icon {
       color: #25d366 !important;
     }
+    .wa-icon:hover {
+      color: #20ba5a !important;
+      background: rgba(37, 211, 102, 0.15) !important;
+    }
+    .email-icon {
+      color: #38bdf8 !important;
+    }
     .email-icon:hover {
-      color: #4f5bd5 !important;
+      color: #0284c7 !important;
+      background: rgba(56, 189, 248, 0.15) !important;
     }
     .export-card {
       padding: 16px;

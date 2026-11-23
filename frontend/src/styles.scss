@@ -1051,6 +1051,51 @@ textarea:focus-visible,
   box-shadow: var(--shadow-popover) !important;
 }
 
+/* Global Material Card Headers & Subtitles (Dark Theme Contrast Fix) */
+.mat-mdc-card-title, mat-card-title {
+  color: var(--color-text) !important;
+  font-family: var(--font-heading) !important;
+}
+
+.mat-mdc-card-subtitle, mat-card-subtitle {
+  color: var(--color-text-muted) !important;
+}
+
+/* Material Plain and Outlined Buttons (Default / Uncolored Contrast Fix) */
+.mat-mdc-button:not([color]):not(:disabled) {
+  color: var(--color-text) !important;
+  --mdc-text-button-label-text-color: var(--color-text) !important;
+  
+  .mat-icon {
+    color: var(--color-text-muted) !important;
+  }
+  
+  &:hover {
+    color: var(--color-primary) !important;
+    background-color: var(--color-surface-raised) !important;
+    .mat-icon {
+      color: var(--color-primary) !important;
+    }
+  }
+}
+
+.mat-mdc-outlined-button:not([color]):not(:disabled) {
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
+  --mdc-outlined-button-label-text-color: var(--color-text) !important;
+  --mdc-outlined-button-outline-color: var(--color-border) !important;
+
+  .mat-icon {
+    color: var(--color-text-muted) !important;
+  }
+
+  &:hover {
+    background-color: var(--color-surface-raised) !important;
+    border-color: var(--color-border-hover) !important;
+    color: var(--color-text) !important;
+  }
+}
+
 /* Material Select & Menu Panels */
 .mat-mdc-select-panel,
 .mat-mdc-menu-panel {

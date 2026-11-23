@@ -191,6 +191,11 @@ def resolve_question_options(
                 options.append({"text": str(item), "fixed": False, "other": False, "exclusive": False})
     else:
         options = [dict(opt) for opt in question.get("options", [])]
+        if not options and question.get("type") in ("consent", "yesno"):
+            options = [
+                {"text": "Yes", "fixed": True, "other": False, "exclusive": False},
+                {"text": "No", "fixed": True, "other": False, "exclusive": False}
+            ]
 
     # Check shuffle
     shuffle = bool(question.get("shuffle", False))

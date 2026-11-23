@@ -30,7 +30,13 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
             <span class="study-title">{{ session.survey_title }}</span>
             <span *ngIf="session.is_test" class="test-pill">PREVIEW / TEST MODE</span>
           </div>
+
           <div class="header-right">
+            <!-- Progress Pill -->
+            <div *ngIf="session.screen === 'Question' && session.question" class="progress-pill">
+              <span>{{ session.question.progress_percentage }}% Completed</span>
+            </div>
+
             <!-- Language toggle if translations exist -->
             <div class="lang-toggle-bar" *ngIf="hasTranslations()">
               <button
@@ -180,23 +186,25 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
   styles: [`
     .respondent-viewport {
       min-height: 100vh;
-      background: #f8fafc;
+      background: radial-gradient(circle at 50% 0%, #EEF2FF 0%, #F8FAFC 55%, #F1F5F9 100%);
       display: flex;
       flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     .survey-top-bar {
-      background: #ffffff;
-      border-bottom: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.9);
       position: sticky;
       top: 0;
       z-index: 100;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
     }
     .bar-content {
-      max-width: 680px;
+      max-width: 760px;
       margin: 0 auto;
-      padding: 14px 16px;
+      padding: 14px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -204,10 +212,11 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
     .study-title {
       font-weight: 700;
       font-size: 15px;
-      color: #1e293b;
+      color: #0f172a;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      letter-spacing: -0.01em;
     }
     .header-left {
       display: flex;
@@ -218,7 +227,17 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
     .header-right {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
+    }
+    .progress-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: #e0e7ff;
+      color: #3730a3;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
     }
     .lang-toggle-bar {
       display: inline-flex;
@@ -238,7 +257,7 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
       transition: all 0.2s;
     }
     .lang-pill.active {
-      background: #2563eb;
+      background: #4f46e5;
       color: #ffffff;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
@@ -268,14 +287,17 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
     }
     .survey-main {
       flex: 1;
-      max-width: 680px;
+      max-width: 760px;
       width: 100%;
       margin: 0 auto;
-      padding: 32px 16px;
+      padding: 36px 20px 48px 20px;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: center;
+    }
+    .question-stage {
+      width: 100%;
     }
     .center-loading {
       text-align: center;
@@ -288,7 +310,7 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
       gap: 10px;
       background: #fef2f2;
       border: 1px solid #fecaca;
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 14px;
       color: #b91c1c;
       margin-bottom: 24px;
@@ -298,14 +320,14 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
       justify-content: center;
       align-items: center;
       width: 100%;
-      animation: fadeIn 0.3s ease;
     }
     .end-card {
       width: 100%;
+      max-width: 540px;
+      padding: 40px 32px;
+      border-radius: 20px;
       text-align: center;
-      padding: 40px 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      box-shadow: 0 16px 40px -10px rgba(15, 23, 42, 0.08);
       background: #ffffff;
       border: 1px solid #e2e8f0;
     }
@@ -322,173 +344,142 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
       font-size: 32px;
       width: 32px;
       height: 32px;
+      line-height: 32px;
     }
-    .success-icon { background: #dcfce7; color: #16a34a; }
-    .disqualify-icon { background: #fee2e2; color: #dc2626; }
-    .info-icon { background: #e0f2fe; color: #0284c7; }
-    .closed-icon { background: #f1f5f9; color: #64748b; }
-    .end-card h2 {
-      margin: 0 0 12px 0;
-      font-size: 24px;
-      font-weight: 700;
-      color: #0f172a;
+    .success-icon {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    .disqualify-icon {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    .info-icon {
+      background: #e0e7ff;
+      color: #4f46e5;
+    }
+    .closed-icon {
+      background: #f1f5f9;
+      color: #64748b;
     }
     .end-desc {
       font-size: 15px;
-      color: #475569;
+      color: #64748b;
       line-height: 1.6;
-      max-width: 440px;
-      margin: 0 auto;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+      margin-top: 10px;
     }
   `]
 })
 export class RespondentContainerComponent implements OnInit {
+  token = '';
   session: RespondentSession | null = null;
   loading = true;
   submitting = false;
   errorMsg = '';
-  activeToken = '';
   currentLang = 'en';
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private apiService: ApiService,
+    private api: ApiService,
     public authService: AuthService
   ) {}
 
+  ngOnInit(): void {
+    this.route.params.subscribe(params => {
+      this.token = params['token'];
+      if (this.token) {
+        this.loadSession();
+      } else {
+        this.errorMsg = 'Invalid survey link. No token provided.';
+        this.loading = false;
+      }
+    });
+  }
+
+  loadSession(): void {
+    this.loading = true;
+    this.errorMsg = '';
+
+    this.api.getRespondentSession(this.token).subscribe({
+      next: (session) => {
+        this.session = session;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.loading = false;
+        this.errorMsg = err.error?.detail || 'Could not load survey. The link may be expired, invalid, or the survey is closed.';
+      }
+    });
+  }
+
   hasTranslations(): boolean {
     const q = this.session?.question;
-    if (!q) return false;
-    if (q.translations && Object.keys(q.translations).length > 0) return true;
-    if (q.options?.some(o => o.translations && Object.keys(o.translations).length > 0)) return true;
-    if (q.rows?.some(r => r.translations && Object.keys(r.translations).length > 0)) return true;
-    return false;
+    return !!(q && q.translations && Object.keys(q.translations).length > 0);
   }
 
   switchLanguage(lang: string): void {
-    if (this.currentLang === lang || !this.activeToken) return;
     this.currentLang = lang;
-    this.apiService.updateLanguage(this.activeToken, lang).subscribe({
-      error: err => console.error('Failed to update language preference', err)
-    });
   }
 
-  ngOnInit(): void {
-    // Check if token route /r/:token or slug route /s/:slug
-    this.route.params.subscribe(params => {
-      if (params['token']) {
-        this.activeToken = params['token'];
-        this.fetchSession(this.activeToken);
-      } else if (params['slug']) {
-        const slug = params['slug'];
-        const storageKey = `survey_token_${slug}`;
-        const cachedToken = localStorage.getItem(storageKey);
-
-        if (cachedToken) {
-          this.activeToken = cachedToken;
-          this.fetchSession(cachedToken);
-        } else {
-          // Join survey to get fresh token and store it
-          this.loading = true;
-          this.apiService.joinSurvey(slug).subscribe({
-            next: joinRes => {
-              this.activeToken = joinRes.token;
-              localStorage.setItem(storageKey, joinRes.token);
-              this.fetchSession(joinRes.token);
-            },
-            error: err => {
-              this.loading = false;
-              this.errorMsg = err?.error?.detail || 'Survey is closed or not available.';
-            }
-          });
-        }
-      }
-    });
-  }
-
-  fetchSession(token: string): void {
-    this.loading = true;
-    this.errorMsg = '';
-    this.apiService.getRespondentSession(token).subscribe({
-      next: sess => {
-        this.session = sess;
-        if (sess.question?.active_language) {
-          this.currentLang = sess.question.active_language;
-        }
-        this.loading = false;
-      },
-      error: err => {
-        this.loading = false;
-        this.errorMsg = err?.error?.detail || 'Invalid or expired survey participation link.';
-      }
-    });
-  }
-
-  onAnswerSubmitted(event: { answer: any; otherText?: string }): void {
-    if (!this.session?.question || !this.activeToken) return;
+  onAnswerSubmitted(payload: { answer: any; otherText?: string }): void {
+    if (this.submitting || !this.session || !this.session.question) return;
     this.submitting = true;
-    this.apiService.submitAnswer(
-      this.activeToken,
+
+    this.api.submitAnswer(
+      this.token,
       this.session.question.id,
-      event.answer,
-      event.otherText
+      payload.answer,
+      payload.otherText
     ).subscribe({
-      next: updatedSess => {
+      next: (updatedSession: RespondentSession) => {
+        this.session = updatedSession;
         this.submitting = false;
-        this.session = updatedSess;
       },
-      error: err => {
+      error: (err: any) => {
         this.submitting = false;
-        alert(err?.error?.detail || 'Error saving answer. Please try again.');
+        this.errorMsg = err?.error?.detail || 'Failed to submit response. Please try again.';
       }
     });
   }
 
   onBackRequested(): void {
-    if (!this.activeToken) return;
+    if (this.submitting || !this.session) return;
     this.submitting = true;
-    this.apiService.goBack(this.activeToken).subscribe({
-      next: prevSess => {
+
+    this.api.goBack(this.token).subscribe({
+      next: (updatedSession: RespondentSession) => {
+        this.session = updatedSession;
         this.submitting = false;
-        this.session = prevSess;
       },
-      error: err => {
+      error: (err: any) => {
         this.submitting = false;
-        alert(err?.error?.detail || 'Cannot go back.');
+        this.errorMsg = err?.error?.detail || 'Failed to navigate back.';
       }
     });
   }
 
   goToDashboard(): void {
-    if (this.session?.survey_id) {
-      this.router.navigate(['/admin/surveys', this.session.survey_id]);
-    } else {
-      this.router.navigate(['/admin/surveys']);
-    }
+    this.router.navigate(['/admin/surveys']);
   }
 
   goToHome(): void {
-    this.router.navigate(['/admin/login']);
+    this.router.navigate(['/']);
   }
 
   retakeSurvey(): void {
     if (this.session?.survey_id) {
-      this.loading = true;
-      this.apiService.createTestSession(this.session.survey_id).subscribe({
-        next: res => {
-          window.location.href = res.url;
+      this.api.createTestSession(this.session.survey_id).subscribe({
+        next: (res: { token: string; survey_slug: string; url: string }) => {
+          this.router.navigate(['/survey', res.token]).then(() => {
+            this.token = res.token;
+            this.loadSession();
+          });
         },
-        error: () => {
-          this.goToDashboard();
+        error: (err: any) => {
+          this.errorMsg = 'Could not generate new preview session.';
         }
       });
-    } else {
-      this.goToDashboard();
     }
   }
 }
