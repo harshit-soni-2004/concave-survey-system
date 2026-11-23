@@ -38,6 +38,7 @@ router = APIRouter(tags=["analytics"])
 
 @router.get("/overview", response_model=OverviewResponse)
 def get_portfolio_overview(
+    days: int = Query(14, ge=7, le=365),
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(require_role(["admin", "researcher"]))
 ):
@@ -72,9 +73,9 @@ def get_portfolio_overview(
 
     overall_progress_percent = round((total_completes / total_target * 100.0), 1) if total_target > 0 else 0.0
 
-    # Completes per day for last 14 days
+    # Completes per day for requested timeframe (default 14 days)
     today = now.date()
-    start_date = today - timedelta(days=13)
+    start_date = today - timedelta(days=days - 1)
     
     completes_rows = db.query(
         func.date(Respondent.completed_at),
@@ -88,7 +89,7 @@ def get_portfolio_overview(
     
     completes_map = {str(r[0]): r[1] for r in completes_rows if r[0]}
     completes_per_day: List[DailyCountItem] = []
-    for i in range(14):
+    for i in range(days):
         d_str = (start_date + timedelta(days=i)).isoformat()
         completes_per_day.append(DailyCountItem(date=d_str, count=completes_map.get(d_str, 0)))
 

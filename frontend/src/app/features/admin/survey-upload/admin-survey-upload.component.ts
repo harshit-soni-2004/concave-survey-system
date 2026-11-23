@@ -206,7 +206,7 @@ import { ValidationError } from '../../../core/models/survey.model';
             </p>
           </div>
 
-          <!-- Target Fieldwork Deadline (Optional) -->
+          <!-- Target Fieldwork Deadline (Optional) with Calendar & Presets -->
           <div class="form-group col-span-2">
             <div class="form-label-row">
               <label class="form-label-title">
@@ -214,14 +214,100 @@ import { ValidationError } from '../../../core/models/survey.model';
               </label>
               <span class="field-help-mini">Auto-lock on expiry</span>
             </div>
-            <div class="input-wrap">
-              <mat-icon class="input-prefix-icon">schedule</mat-icon>
-              <input 
-                type="datetime-local" 
-                [(ngModel)]="surveyDeadline" 
-                class="config-input font-mono" 
-              />
+
+            <div class="deadline-input-container">
+              <div class="input-wrap deadline-wrap">
+                <mat-icon class="input-prefix-icon" (click)="toggleCalendar()" style="cursor: pointer;" title="Toggle Calendar">schedule</mat-icon>
+                <input 
+                  #deadlineInput
+                  type="datetime-local" 
+                  [(ngModel)]="surveyDeadline" 
+                  class="config-input font-mono" 
+                />
+                <button 
+                  type="button" 
+                  class="btn-calendar-trigger" 
+                  (click)="toggleCalendar()" 
+                  [class.active]="showCalendarPicker"
+                  title="Open Interactive Calendar">
+                  <mat-icon>calendar_month</mat-icon>
+                  <span>{{ showCalendarPicker ? 'Close' : 'Calendar' }}</span>
+                </button>
+                <button 
+                  *ngIf="surveyDeadline" 
+                  type="button" 
+                  class="btn-clear-date" 
+                  (click)="clearDeadline()" 
+                  title="Clear Deadline">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+
+              <!-- Quick Deadline Preset Buttons -->
+              <div class="deadline-presets-bar">
+                <span class="presets-label">Quick Presets:</span>
+                <div class="preset-chips-list">
+                  <button type="button" class="preset-chip" (click)="setDeadlinePreset(7)">+1 Week (7d)</button>
+                  <button type="button" class="preset-chip" (click)="setDeadlinePreset(14)">+2 Weeks (14d)</button>
+                  <button type="button" class="preset-chip" (click)="setDeadlinePreset(30)">+1 Month (30d)</button>
+                  <button type="button" class="preset-chip" (click)="setDeadlinePreset(90)">+1 Quarter (90d)</button>
+                  <button type="button" class="preset-chip" (click)="setDeadlineEndOfMonth()">End of Month</button>
+                  <button type="button" class="preset-chip chip-clear" *ngIf="surveyDeadline" (click)="clearDeadline()">Clear</button>
+                </div>
+              </div>
+
+              <!-- Interactive Calendar Popover Widget -->
+              <div *ngIf="showCalendarPicker" class="calendar-popover-card">
+                <div class="cal-header">
+                  <button type="button" class="cal-nav-btn" (click)="prevCalMonth()" title="Previous Month">
+                    <mat-icon>chevron_left</mat-icon>
+                  </button>
+                  <span class="cal-month-name">{{ calMonthTitle }}</span>
+                  <button type="button" class="cal-nav-btn" (click)="nextCalMonth()" title="Next Month">
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+
+                <!-- Weekday Headers -->
+                <div class="cal-weekdays">
+                  <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                </div>
+
+                <!-- Days 7x6 Grid -->
+                <div class="cal-days-grid">
+                  <button 
+                    type="button" 
+                    *ngFor="let d of calDays" 
+                    class="cal-day-cell"
+                    [class.is-current-month]="d.isCurrentMonth"
+                    [class.is-other-month]="!d.isCurrentMonth"
+                    [class.is-today]="d.isToday"
+                    [class.is-selected]="d.isSelected"
+                    (click)="selectCalDate(d.isoString)">
+                    {{ d.dayNum }}
+                  </button>
+                </div>
+
+                <!-- Time selector & Preset actions -->
+                <div class="cal-footer">
+                  <div class="cal-time-row">
+                    <span class="cal-time-label">Time:</span>
+                    <button type="button" class="time-preset-btn" [class.active]="calTime === '12:00'" (click)="setCalTime('12:00')">12:00 PM</button>
+                    <button type="button" class="time-preset-btn" [class.active]="calTime === '17:00'" (click)="setCalTime('17:00')">5:00 PM</button>
+                    <button type="button" class="time-preset-btn" [class.active]="calTime === '23:59'" (click)="setCalTime('23:59')">11:59 PM</button>
+                  </div>
+                  <div class="cal-action-buttons">
+                    <button type="button" class="btn-cal-native" (click)="openNativePicker(deadlineInput)">
+                      <mat-icon>event</mat-icon> Native Picker
+                    </button>
+                    <button type="button" class="btn-cal-done" (click)="applyCalendar()">
+                      Done
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
+
             <p class="field-help-text">
               Setting a deadline enables quota completion pace tracking and automated deadline alerts.
             </p>
@@ -798,6 +884,335 @@ import { ValidationError } from '../../../core/models/survey.model';
       font-size: 14px;
       width: 14px;
       height: 14px;
+    }
+
+    /* Calendar & Deadline Controls */
+    .deadline-input-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .deadline-wrap {
+      position: relative;
+    }
+
+    .btn-calendar-trigger {
+      position: absolute;
+      right: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: rgba(139, 108, 255, 0.15);
+      border: 1px solid rgba(139, 108, 255, 0.35);
+      color: #C4B5FD;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      z-index: 2;
+    }
+
+    .btn-calendar-trigger:hover, .btn-calendar-trigger.active {
+      background: rgba(139, 108, 255, 0.3);
+      color: #FFFFFF;
+      border-color: #8B6CFF;
+      box-shadow: 0 0 10px rgba(139, 108, 255, 0.4);
+    }
+
+    .btn-calendar-trigger mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .btn-clear-date {
+      position: absolute;
+      right: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: #94A3B8;
+      cursor: pointer;
+      z-index: 2;
+      transition: all 0.15s ease;
+    }
+
+    .btn-clear-date:hover {
+      background: rgba(244, 63, 94, 0.2);
+      color: #FB7185;
+    }
+
+    .btn-clear-date mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    .deadline-presets-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .presets-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8A8AA3;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .preset-chips-list {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .preset-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #C7D2FE;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .preset-chip:hover {
+      background: rgba(139, 108, 255, 0.15);
+      border-color: rgba(139, 108, 255, 0.4);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    .preset-chip.chip-clear {
+      color: #FB7185;
+      border-color: rgba(251, 113, 133, 0.3);
+    }
+
+    .preset-chip.chip-clear:hover {
+      background: rgba(251, 113, 133, 0.15);
+      border-color: #FB7185;
+    }
+
+    /* Interactive Calendar Popover */
+    .calendar-popover-card {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 320px;
+      margin-top: 8px;
+      padding: 16px;
+      background: #14132B;
+      border: 1px solid rgba(139, 108, 255, 0.35);
+      border-radius: 14px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(139, 108, 255, 0.15);
+      z-index: 50;
+      animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .cal-month-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: 0.02em;
+    }
+
+    .cal-nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #C7D2FE;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .cal-nav-btn:hover {
+      background: rgba(139, 108, 255, 0.2);
+      color: #FFFFFF;
+      border-color: #8B6CFF;
+    }
+
+    .cal-nav-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .cal-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #8A8AA3;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .cal-days-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .cal-day-cell {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: #E2E8F0;
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .cal-day-cell.is-other-month {
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .cal-day-cell:hover:not(.is-selected) {
+      background: rgba(139, 108, 255, 0.2);
+      color: #FFFFFF;
+    }
+
+    .cal-day-cell.is-today:not(.is-selected) {
+      border: 1px solid #2DD4F5;
+      color: #2DD4F5;
+      font-weight: 700;
+    }
+
+    .cal-day-cell.is-selected {
+      background: linear-gradient(135deg, #8B6CFF 0%, #2DD4F5 100%);
+      color: #07070F !important;
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(45, 212, 245, 0.4);
+    }
+
+    .cal-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cal-time-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cal-time-label {
+      font-size: 11px;
+      color: #8A8AA3;
+      font-weight: 600;
+    }
+
+    .time-preset-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #C7D2FE;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 3px 6px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .time-preset-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+    }
+
+    .time-preset-btn.active {
+      background: rgba(45, 212, 245, 0.2);
+      border-color: #2DD4F5;
+      color: #2DD4F5;
+    }
+
+    .cal-action-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .btn-cal-native {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: none;
+      color: #8A8AA3;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+
+    .btn-cal-native:hover {
+      color: #2DD4F5;
+    }
+
+    .btn-cal-native mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    .btn-cal-done {
+      background: linear-gradient(135deg, #8B6CFF 0%, #6366F1 100%);
+      border: none;
+      color: #FFFFFF;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-cal-done:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
     }
 
     .field-error-text {
@@ -1528,6 +1943,21 @@ export class AdminSurveyUploadComponent implements OnInit {
   surveyTarget = 150;
   surveyDeadline = '';
 
+  // Calendar Popover & Quick Presets State
+  showCalendarPicker = false;
+  calViewMonth = new Date();
+  calDays: Array<{
+    date: Date;
+    dayNum: number;
+    isCurrentMonth: boolean;
+    isToday: boolean;
+    isSelected: boolean;
+    isoString: string;
+  }> = [];
+  calTime = '23:59';
+
+  @ViewChild('deadlineInput') deadlineInput?: ElementRef<HTMLInputElement>;
+
   existingSurveys: { id: number; title: string; slug: string }[] = [];
   isTitleUnique = true;
   isSlugUnique = true;
@@ -1647,6 +2077,166 @@ export class AdminSurveyUploadComponent implements OnInit {
       this.isSlugUnique = true;
     } else {
       this.isSlugUnique = !this.existingSurveys.some(s => s.slug.trim().toLowerCase() === trimmedSlug);
+    }
+  }
+
+  // --- Calendar Popover & Quick Presets Methods ---
+  toggleCalendar(): void {
+    this.showCalendarPicker = !this.showCalendarPicker;
+    if (this.showCalendarPicker) {
+      if (this.surveyDeadline) {
+        const d = new Date(this.surveyDeadline);
+        if (!isNaN(d.getTime())) {
+          this.calViewMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+          const hh = String(d.getHours()).padStart(2, '0');
+          const mm = String(d.getMinutes()).padStart(2, '0');
+          this.calTime = `${hh}:${mm}`;
+        }
+      } else {
+        this.calViewMonth = new Date();
+      }
+      this.generateCalendarGrid();
+    }
+  }
+
+  generateCalendarGrid(): void {
+    const year = this.calViewMonth.getFullYear();
+    const month = this.calViewMonth.getMonth();
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const selectedDateStr = this.surveyDeadline ? this.surveyDeadline.slice(0, 10) : '';
+
+    const days: any[] = [];
+
+    // Prior month filler days
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const d = new Date(year, month - 1, prevMonthLastDay - i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      days.push({
+        date: d,
+        dayNum: prevMonthLastDay - i,
+        isCurrentMonth: false,
+        isToday: iso === todayStr,
+        isSelected: iso === selectedDateStr,
+        isoString: iso
+      });
+    }
+
+    // Current month days
+    for (let i = 1; i <= lastDayOfMonth; i++) {
+      const d = new Date(year, month, i);
+      const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      days.push({
+        date: d,
+        dayNum: i,
+        isCurrentMonth: true,
+        isToday: iso === todayStr,
+        isSelected: iso === selectedDateStr,
+        isoString: iso
+      });
+    }
+
+    // Next month filler
+    const remaining = 42 - days.length;
+    for (let i = 1; i <= remaining; i++) {
+      const d = new Date(year, month + 1, i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      days.push({
+        date: d,
+        dayNum: i,
+        isCurrentMonth: false,
+        isToday: iso === todayStr,
+        isSelected: iso === selectedDateStr,
+        isoString: iso
+      });
+    }
+
+    this.calDays = days;
+  }
+
+  prevCalMonth(): void {
+    this.calViewMonth = new Date(this.calViewMonth.getFullYear(), this.calViewMonth.getMonth() - 1, 1);
+    this.generateCalendarGrid();
+  }
+
+  nextCalMonth(): void {
+    this.calViewMonth = new Date(this.calViewMonth.getFullYear(), this.calViewMonth.getMonth() + 1, 1);
+    this.generateCalendarGrid();
+  }
+
+  get calMonthTitle(): string {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${months[this.calViewMonth.getMonth()]} ${this.calViewMonth.getFullYear()}`;
+  }
+
+  selectCalDate(isoString: string): void {
+    this.surveyDeadline = `${isoString}T${this.calTime}`;
+    this.generateCalendarGrid();
+    this.snackBar.open(`Deadline set to ${isoString} ${this.calTime}`, 'Close', { duration: 2500 });
+  }
+
+  setCalTime(preset: string): void {
+    this.calTime = preset;
+    if (this.surveyDeadline) {
+      const datePart = this.surveyDeadline.slice(0, 10);
+      this.surveyDeadline = `${datePart}T${this.calTime}`;
+    }
+  }
+
+  applyCalendar(): void {
+    this.showCalendarPicker = false;
+  }
+
+  setDeadlinePreset(days: number): void {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const yr = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    this.surveyDeadline = `${yr}-${mo}-${da}T23:59`;
+    if (this.showCalendarPicker) {
+      this.calViewMonth = new Date(yr, d.getMonth(), 1);
+      this.generateCalendarGrid();
+    }
+    const label = days === 7 ? '1 Week' : days === 14 ? '2 Weeks' : days === 30 ? '1 Month' : days === 90 ? '1 Quarter' : `${days} Days`;
+    this.snackBar.open(`Deadline set (+${label}): ${da}/${mo}/${yr} 23:59`, 'Close', { duration: 2500 });
+  }
+
+  setDeadlineEndOfMonth(): void {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const yr = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    this.surveyDeadline = `${yr}-${mo}-${da}T23:59`;
+    if (this.showCalendarPicker) {
+      this.calViewMonth = new Date(yr, d.getMonth(), 1);
+      this.generateCalendarGrid();
+    }
+    this.snackBar.open(`Deadline set to End of Month: ${da}/${mo}/${yr} 23:59`, 'Close', { duration: 2500 });
+  }
+
+  clearDeadline(): void {
+    this.surveyDeadline = '';
+    if (this.showCalendarPicker) {
+      this.generateCalendarGrid();
+    }
+    this.snackBar.open('Fieldwork deadline cleared', 'Close', { duration: 2000 });
+  }
+
+  openNativePicker(inputEl: HTMLInputElement): void {
+    if (typeof (inputEl as any).showPicker === 'function') {
+      try {
+        (inputEl as any).showPicker();
+      } catch {
+        inputEl.focus();
+      }
+    } else {
+      inputEl.focus();
     }
   }
 

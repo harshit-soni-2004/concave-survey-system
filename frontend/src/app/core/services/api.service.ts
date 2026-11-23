@@ -87,8 +87,8 @@ export class ApiService {
   }
 
   // Analytics & Health
-  getOverview(): Observable<import('../models/survey.model').OverviewResponse> {
-    return this.http.get<import('../models/survey.model').OverviewResponse>('/api/overview');
+  getOverview(days: number = 14): Observable<import('../models/survey.model').OverviewResponse> {
+    return this.http.get<import('../models/survey.model').OverviewResponse>(`/api/overview?days=${days}`);
   }
 
   getSurveyAnalytics(id: number, days: number = 14): Observable<import('../models/survey.model').SurveyAnalyticsResponse> {

@@ -137,54 +137,118 @@ import {
           </div>
         </div>
 
-        <!-- 2. Charts Row: Line (14-day completes) & Donut (status distribution) -->
-        <div class="charts-row">
-          <!-- 14-Day Completes Line Chart -->
-          <div class="admin-card chart-card-main">
-            <div class="card-header-bar">
-              <h3>
-                <mat-icon color="primary">show_chart</mat-icon> Completes per Day (Last 14 Days)
-              </h3>
-              <span class="chart-subtitle">Cross-study production volume</span>
-            </div>
-            <div class="card-body-content chart-body">
-              <canvas 
-                *ngIf="hasDailyData" 
-                baseChart
-                [data]="lineChartData"
-                [options]="lineChartOptions"
-                [type]="'line'">
-              </canvas>
-              <div *ngIf="!hasDailyData" class="no-data-msg">
-                <mat-icon>query_builder</mat-icon>
-                <span>No completion activity recorded in the last 14 days.</span>
+        <!-- 2. Charts Section: Configurable Time Period (1W, 2W, 1M, 2M, 1Q, 2Q, 1Y), Line/Bar Toggle & Minimize Option -->
+        <div class="charts-section-wrap">
+          <!-- Minimized Banner (When Minimized) -->
+          <div *ngIf="isChartsMinimized" class="admin-card charts-minimized-strip" (click)="toggleChartsMinimized()">
+            <div class="minimized-strip-left">
+              <div class="minimized-icon-box">
+                <mat-icon color="primary">show_chart</mat-icon>
+              </div>
+              <div class="minimized-meta">
+                <div class="minimized-title-row">
+                  <span class="minimized-title">Portfolio Analytics Charts</span>
+                  <span class="minimized-pill">{{ getPeriodLabel() }}: {{ totalPeriodCompletes }} Completes</span>
+                  <span class="minimized-pill alt">{{ surveys.length }} Studies</span>
+                </div>
+                <span class="minimized-sub">Production volume &amp; study status distribution &bull; Click to expand</span>
               </div>
             </div>
+            <button type="button" class="btn-strip-toggle" (click)="$event.stopPropagation(); toggleChartsMinimized()" title="Expand Charts">
+              <mat-icon>unfold_more</mat-icon>
+              <span>Expand Charts</span>
+            </button>
           </div>
 
-          <!-- Status Distribution Donut Chart -->
-          <div class="admin-card chart-card-side">
-            <div class="card-header-bar">
-              <h3>
-                <mat-icon color="primary">pie_chart</mat-icon> Studies by Status
-              </h3>
-            </div>
-            <div class="card-body-content chart-body donut-body">
-              <div *ngIf="surveys.length > 0" class="donut-wrapper">
-                <canvas 
-                  baseChart
-                  [data]="donutChartData"
-                  [options]="donutChartOptions"
-                  [type]="'doughnut'">
-                </canvas>
-                <div class="donut-center-metric">
-                  <span class="donut-center-val">{{ surveys.length }}</span>
-                  <span class="donut-center-lbl">Studies</span>
+          <!-- Full Charts Row (When Expanded) -->
+          <div *ngIf="!isChartsMinimized" class="charts-row">
+            <!-- Completes Chart with Configurable Time Period & Line/Bar Toggle -->
+            <div class="admin-card chart-card-main">
+              <div class="card-header-bar chart-header-flexible">
+                <div class="header-titles-col">
+                  <h3>
+                    <mat-icon color="primary">show_chart</mat-icon> {{ getPeriodTitle() }}
+                  </h3>
+                  <span class="chart-subtitle">
+                    {{ totalPeriodCompletes }} completes in period &bull; Avg {{ avgDailyCompletes }}/day
+                  </span>
+                </div>
+
+                <div class="chart-controls-group">
+                  <!-- Time Period Selector Pills (1W, 2W, 1M, 1Q, 2Q, 1Y) -->
+                  <div class="period-pills-bar" role="group" aria-label="Chart Time Period">
+                    <button 
+                      *ngFor="let p of periodOptions" 
+                      type="button" 
+                      class="period-pill-btn" 
+                      [class.active]="selectedPeriodDays === p.days"
+                      (click)="selectPeriod(p.days)"
+                      [title]="p.title">
+                      {{ p.label }}
+                    </button>
+                  </div>
+
+                  <!-- Chart Type Toggle (Line vs Bar) -->
+                  <button 
+                    type="button" 
+                    class="btn-chart-type-toggle" 
+                    (click)="toggleChartType()" 
+                    [title]="chartType === 'line' ? 'Switch to Bar Chart' : 'Switch to Line Chart'">
+                    <mat-icon>{{ chartType === 'line' ? 'bar_chart' : 'show_chart' }}</mat-icon>
+                    <span>{{ chartType === 'line' ? 'Bar' : 'Line' }}</span>
+                  </button>
+
+                  <!-- Minimize Charts Button -->
+                  <button 
+                    type="button" 
+                    class="btn-minimize-icon" 
+                    (click)="toggleChartsMinimized()" 
+                    title="Minimize Analytics Section">
+                    <mat-icon>unfold_less</mat-icon>
+                    <span>Minimize</span>
+                  </button>
                 </div>
               </div>
-              <div *ngIf="surveys.length === 0" class="no-data-msg">
-                <mat-icon>inbox</mat-icon>
-                <span>No studies in portfolio.</span>
+
+              <div class="card-body-content chart-body">
+                <canvas 
+                  *ngIf="hasDailyData" 
+                  baseChart
+                  [data]="lineChartData"
+                  [options]="lineChartOptions"
+                  [type]="chartType">
+                </canvas>
+                <div *ngIf="!hasDailyData" class="no-data-msg">
+                  <mat-icon>query_builder</mat-icon>
+                  <span>No completion activity recorded in the selected period ({{ getPeriodLabel() }}).</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status Distribution Donut Chart -->
+            <div class="admin-card chart-card-side">
+              <div class="card-header-bar">
+                <h3>
+                  <mat-icon color="primary">pie_chart</mat-icon> Studies by Status
+                </h3>
+              </div>
+              <div class="card-body-content chart-body donut-body">
+                <div *ngIf="surveys.length > 0" class="donut-wrapper">
+                  <canvas 
+                    baseChart
+                    [data]="donutChartData"
+                    [options]="donutChartOptions"
+                    [type]="'doughnut'">
+                  </canvas>
+                  <div class="donut-center-metric">
+                    <span class="donut-center-val">{{ surveys.length }}</span>
+                    <span class="donut-center-lbl">Studies</span>
+                  </div>
+                </div>
+                <div *ngIf="surveys.length === 0" class="no-data-msg">
+                  <mat-icon>inbox</mat-icon>
+                  <span>No studies in portfolio.</span>
+                </div>
               </div>
             </div>
           </div>
@@ -348,16 +412,40 @@ import {
           </div>
         </section>
 
-        <!-- 5. Recent Activity Feed -->
+        <!-- 5. Recent Activity Feed with Minimize / Expand -->
         <section class="section-block" style="margin-top: 28px;" *ngIf="overview?.recent_events?.length">
           <div class="admin-card">
             <div class="card-header-bar">
-              <h3>
-                <mat-icon color="primary">history</mat-icon> Recent Activity Feed
-              </h3>
-              <span class="chart-subtitle">Latest 10 logged portfolio events</span>
+              <div>
+                <h3>
+                  <mat-icon color="primary">history</mat-icon> Recent Activity Feed
+                </h3>
+                <span class="chart-subtitle">Latest 10 logged portfolio events</span>
+              </div>
+
+              <!-- Minimize / Expand Toggle Button -->
+              <button 
+                type="button" 
+                class="btn-minimize-icon" 
+                (click)="toggleActivityMinimized()" 
+                [title]="isActivityMinimized ? 'Expand Activity Feed' : 'Minimize Activity Feed'">
+                <mat-icon>{{ isActivityMinimized ? 'unfold_more' : 'unfold_less' }}</mat-icon>
+                <span>{{ isActivityMinimized ? 'Expand' : 'Minimize' }}</span>
+              </button>
             </div>
-            <div class="card-body-content" style="padding: 0;">
+
+            <!-- Minimized Summary Strip -->
+            <div *ngIf="isActivityMinimized" class="activity-minimized-strip" (click)="toggleActivityMinimized()">
+              <div class="activity-min-content">
+                <span class="min-event-count">10 Events</span>
+                <span class="min-latest-text">Latest: {{ overview?.recent_events?.[0]?.message }}</span>
+                <span class="min-latest-time">{{ getRelativeTime(overview?.recent_events?.[0]?.timestamp) }}</span>
+              </div>
+              <span class="min-click-hint">Click to expand</span>
+            </div>
+
+            <!-- Full Feed List (When Expanded) -->
+            <div *ngIf="!isActivityMinimized" class="card-body-content" style="padding: 0;">
               <div class="activity-feed-list">
                 <div *ngFor="let ev of overview?.recent_events" class="activity-feed-item">
                   <div class="activity-icon-col" [ngClass]="ev.event_type">
@@ -754,6 +842,198 @@ import {
     .chart-body {
       height: 270px;
       position: relative;
+    }
+
+    /* Configurable Charts & Controls */
+    .chart-header-flexible {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header-titles-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .chart-controls-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .period-pills-bar {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .period-pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .period-pill-btn:hover {
+      color: var(--color-text);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .period-pill-btn.active {
+      background: linear-gradient(135deg, #8B6CFF 0%, #6366F1 100%);
+      color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(139, 108, 255, 0.35);
+    }
+    .btn-chart-type-toggle, .btn-minimize-icon {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--color-text-muted);
+      padding: 5px 11px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-chart-type-toggle mat-icon, .btn-minimize-icon mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+    .btn-chart-type-toggle:hover, .btn-minimize-icon:hover {
+      color: var(--color-text);
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .charts-minimized-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      margin-bottom: 24px;
+      cursor: pointer;
+      border: 1px dashed rgba(139, 108, 255, 0.35);
+      background: rgba(18, 17, 34, 0.7);
+      border-radius: 16px;
+      transition: all 0.2s ease;
+    }
+    .charts-minimized-strip:hover {
+      background: rgba(18, 17, 34, 0.95);
+      border-color: rgba(45, 212, 245, 0.5);
+    }
+    .minimized-strip-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .minimized-icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(139, 108, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .minimized-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .minimized-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .minimized-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+    .minimized-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(45, 212, 245, 0.15);
+      color: #2DD4F5;
+    }
+    .minimized-pill.alt {
+      background: rgba(139, 108, 255, 0.15);
+      color: #8B6CFF;
+    }
+    .minimized-sub {
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+    .btn-strip-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--color-text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-strip-toggle:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #2DD4F5;
+    }
+    .activity-minimized-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.02);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      transition: background 0.15s ease;
+    }
+    .activity-minimized-strip:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .activity-min-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .min-event-count {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(139, 108, 255, 0.2);
+      color: #8B6CFF;
+    }
+    .min-latest-text {
+      font-size: 13px;
+      color: var(--color-text);
+      font-weight: 500;
+    }
+    .min-latest-time {
+      font-size: 11.5px;
+      color: var(--color-text-muted);
+    }
+    .min-click-hint {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      font-style: italic;
     }
     .donut-body {
       display: flex;
@@ -1395,13 +1675,30 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
   // Active Share Survey
   activeShareSurvey: SurveyListItem | null = null;
 
-  // Chart.js Line Chart Configuration
-  lineChartData: ChartData<'line'> = {
+  // Configurable Time Period & Charts State
+  selectedPeriodDays: number = 14;
+  periodOptions = [
+    { label: '1W', title: 'Last 7 Days (1 Week)', days: 7 },
+    { label: '2W', title: 'Last 14 Days (2 Weeks)', days: 14 },
+    { label: '1M', title: 'Last 30 Days (1 Month)', days: 30 },
+    { label: '2M', title: 'Last 60 Days (2 Months)', days: 60 },
+    { label: '1Q', title: 'Last 90 Days (1 Quarter)', days: 90 },
+    { label: '2Q', title: 'Last 180 Days (2 Quarters)', days: 180 },
+    { label: '1Y', title: 'Last 365 Days (1 Year)', days: 365 }
+  ];
+  chartType: 'line' | 'bar' = 'line';
+  totalPeriodCompletes: number = 0;
+  avgDailyCompletes: string = '0';
+  isChartsMinimized: boolean = false;
+  isActivityMinimized: boolean = false;
+
+  // Chart.js Line / Bar Chart Configuration
+  lineChartData: ChartData<any> = {
     labels: [],
     datasets: []
   };
 
-  lineChartOptions: ChartConfiguration<'line'>['options'] = {};
+  lineChartOptions: ChartConfiguration<any>['options'] = {};
 
   // Chart.js Donut Configuration
   donutChartData: ChartData<'doughnut'> = {
@@ -1420,6 +1717,18 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    try {
+      const savedCharts = localStorage.getItem('concave_charts_minimized');
+      if (savedCharts !== null) this.isChartsMinimized = savedCharts === 'true';
+      const savedActivity = localStorage.getItem('concave_activity_minimized');
+      if (savedActivity !== null) this.isActivityMinimized = savedActivity === 'true';
+      const savedPeriod = localStorage.getItem('concave_dashboard_period_days');
+      if (savedPeriod) {
+        const p = parseInt(savedPeriod, 10);
+        if ([7, 14, 30, 60, 90, 180, 365].includes(p)) this.selectedPeriodDays = p;
+      }
+    } catch {}
+
     this.updateChartOptions();
     this.loadAllData();
 
@@ -1509,7 +1818,7 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
     this.loadError = false;
 
     const executeFetch = () => {
-      this.apiService.getOverview().subscribe({
+      this.apiService.getOverview(this.selectedPeriodDays).subscribe({
         next: (ov) => {
           this.overview = ov;
           this.setupCharts(ov);
@@ -1544,6 +1853,60 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
     }
   }
 
+  selectPeriod(days: number): void {
+    if (this.selectedPeriodDays === days) return;
+    this.selectedPeriodDays = days;
+    try {
+      localStorage.setItem('concave_dashboard_period_days', String(days));
+    } catch {}
+    this.apiService.getOverview(days).subscribe({
+      next: (ov) => {
+        this.overview = ov;
+        this.setupCharts(ov);
+      },
+      error: (err) => console.error('Failed to load period overview:', err)
+    });
+  }
+
+  toggleChartType(): void {
+    this.chartType = this.chartType === 'line' ? 'bar' : 'line';
+    if (this.overview) {
+      this.setupCharts(this.overview);
+    }
+  }
+
+  toggleChartsMinimized(): void {
+    this.isChartsMinimized = !this.isChartsMinimized;
+    try {
+      localStorage.setItem('concave_charts_minimized', String(this.isChartsMinimized));
+    } catch {}
+  }
+
+  toggleActivityMinimized(): void {
+    this.isActivityMinimized = !this.isActivityMinimized;
+    try {
+      localStorage.setItem('concave_activity_minimized', String(this.isActivityMinimized));
+    } catch {}
+  }
+
+  getPeriodTitle(): string {
+    switch (this.selectedPeriodDays) {
+      case 7: return 'Completes per Day (Last 7 Days / 1 Week)';
+      case 14: return 'Completes per Day (Last 14 Days / 2 Weeks)';
+      case 30: return 'Completes per Day (Last 30 Days / 1 Month)';
+      case 60: return 'Completes Trend (Last 60 Days / 2 Months)';
+      case 90: return 'Completes Trend (Last 90 Days / 1 Quarter)';
+      case 180: return 'Completes Trend (Last 180 Days / 2 Quarters)';
+      case 365: return 'Completes Volume (Last 365 Days / 1 Year)';
+      default: return `Completes per Day (Last ${this.selectedPeriodDays} Days)`;
+    }
+  }
+
+  getPeriodLabel(): string {
+    const p = this.periodOptions.find(o => o.days === this.selectedPeriodDays);
+    return p ? p.label : `${this.selectedPeriodDays}d`;
+  }
+
   setupCharts(ov: OverviewResponse): void {
     const isDark = this.themeService.isDark();
     const primaryColor = isDark ? '#8B6CFF' : '#4F46E5';
@@ -1551,30 +1914,48 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
     const pointColor = isDark ? '#2DD4F5' : '#4F46E5';
     const pointBorder = isDark ? '#8B6CFF' : '#FFFFFF';
 
-    // 1. Line chart: Completes per day (14 days)
-    const labels = ov.completes_per_day.map(d => {
+    const count = ov.completes_per_day ? ov.completes_per_day.length : 0;
+    const labels = ov.completes_per_day ? ov.completes_per_day.map(d => {
       const parts = d.date.split('-');
       return `${parts[1]}/${parts[2]}`;
-    });
-    const counts = ov.completes_per_day.map(d => d.count);
+    }) : [];
+    const counts = ov.completes_per_day ? ov.completes_per_day.map(d => d.count) : [];
 
-    this.lineChartData = {
-      labels,
-      datasets: [
-        {
-          data: counts,
-          label: 'Completes',
-          borderColor: primaryColor,
-          backgroundColor: primaryBg,
-          fill: true,
-          tension: 0.35,
-          pointBackgroundColor: pointColor,
-          pointBorderColor: pointBorder,
-          pointRadius: 4,
-          pointHoverRadius: 6
-        }
-      ]
-    };
+    this.totalPeriodCompletes = counts.reduce((acc, c) => acc + c, 0);
+    this.avgDailyCompletes = count > 0 ? (this.totalPeriodCompletes / count).toFixed(1) : '0';
+
+    if (this.chartType === 'bar') {
+      this.lineChartData = {
+        labels,
+        datasets: [
+          {
+            data: counts,
+            label: 'Completes',
+            borderColor: primaryColor,
+            backgroundColor: isDark ? 'rgba(139, 108, 255, 0.6)' : 'rgba(79, 70, 229, 0.75)',
+            borderRadius: 4
+          } as any
+        ]
+      };
+    } else {
+      this.lineChartData = {
+        labels,
+        datasets: [
+          {
+            data: counts,
+            label: 'Completes',
+            borderColor: primaryColor,
+            backgroundColor: primaryBg,
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: pointColor,
+            pointBorderColor: pointBorder,
+            pointRadius: count > 30 ? (count > 90 ? 0 : 2) : 4,
+            pointHoverRadius: 6
+          }
+        ]
+      };
+    }
 
     this.updateDonutChart();
   }

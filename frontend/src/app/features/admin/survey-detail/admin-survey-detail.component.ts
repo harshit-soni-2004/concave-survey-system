@@ -101,9 +101,15 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
               </button>
             </div>
             <div class="deadline-edit-row" *ngIf="editingDeadline">
-              <input type="datetime-local" [(ngModel)]="newDeadlineValue" class="date-input" />
-              <button mat-icon-button color="primary" (click)="saveDeadline()"><mat-icon>check</mat-icon></button>
-              <button mat-icon-button (click)="editingDeadline = false"><mat-icon>close</mat-icon></button>
+              <input #detailDeadlineInput type="datetime-local" [(ngModel)]="newDeadlineValue" class="date-input" />
+              <button mat-icon-button class="calendar-btn" (click)="openPicker(detailDeadlineInput)" title="Open Calendar"><mat-icon>calendar_month</mat-icon></button>
+              <button mat-icon-button color="primary" (click)="saveDeadline()" title="Save Deadline"><mat-icon>check</mat-icon></button>
+              <button mat-icon-button (click)="editingDeadline = false" title="Cancel"><mat-icon>close</mat-icon></button>
+            </div>
+            <div class="deadline-presets-mini" *ngIf="editingDeadline">
+              <button type="button" class="preset-btn-mini" (click)="setDeadlineOffset(7)">+7d</button>
+              <button type="button" class="preset-btn-mini" (click)="setDeadlineOffset(14)">+14d</button>
+              <button type="button" class="preset-btn-mini" (click)="setDeadlineOffset(30)">+30d</button>
             </div>
           </div>
           <div class="meta-box">
@@ -428,6 +434,24 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       max-width: 240px;
       flex-shrink: 1;
     }
+    .deadline-presets-mini {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .preset-btn-mini {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--color-primary);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .preset-btn-mini:hover {
+      background: rgba(139, 108, 255, 0.2);
+    }
     .grid-2col {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -729,6 +753,25 @@ export class AdminSurveyDetailComponent implements OnInit {
     if (this.survey?.deadline_at) {
       this.newDeadlineValue = new Date(this.survey.deadline_at).toISOString().slice(0, 16);
     }
+  }
+
+  openPicker(inputEl: HTMLInputElement): void {
+    if (typeof (inputEl as any).showPicker === 'function') {
+      try {
+        (inputEl as any).showPicker();
+      } catch {
+        inputEl.focus();
+      }
+    } else {
+      inputEl.focus();
+    }
+  }
+
+  setDeadlineOffset(days: number): void {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setHours(23, 59, 0, 0);
+    this.newDeadlineValue = d.toISOString().slice(0, 16);
   }
 
   saveDeadline(): void {
