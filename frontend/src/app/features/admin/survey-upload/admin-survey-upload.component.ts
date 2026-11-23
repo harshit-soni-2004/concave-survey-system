@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -39,7 +39,7 @@ import { ValidationError } from '../../../core/models/survey.model';
             <span class="header-breadcrumb">/admin/upload</span>
           </div>
           <h1 class="page-heading">Upload Questionnaire Definition</h1>
-          <p class="subtitle">Deterministic XML tag parser, unique title constraint validator, and study version initializer.</p>
+          <p class="subtitle">Deterministic XML tag parser, interactive line-numbered editor, syntax error highlighter, and study version initializer.</p>
         </div>
         <button mat-stroked-button routerLink="/admin/surveys" class="back-btn">
           <mat-icon>arrow_back</mat-icon> Back to Surveys
@@ -67,16 +67,25 @@ import { ValidationError } from '../../../core/models/survey.model';
         </div>
       </div>
 
-      <!-- Validation Errors Banner -->
+      <!-- Validation Errors Banner with Click-to-Jump -->
       <div *ngIf="validationErrors.length > 0" class="error-container">
         <div class="error-header">
           <mat-icon class="error-icon">error_outline</mat-icon>
           <strong>Syntax Validation Failed ({{ validationErrors.length }} errors detected):</strong>
+          <span class="click-hint">Click any error to jump directly to that line in the editor</span>
         </div>
         <div class="error-list">
-          <div *ngFor="let err of validationErrors" class="error-item">
+          <div 
+            *ngFor="let err of validationErrors" 
+            class="error-item clickable" 
+            (click)="jumpToLine(err.line)"
+            [title]="'Jump to line ' + err.line + ' in code editor'"
+          >
             <span class="line-badge">Line {{ err.line }}</span>
             <span class="error-msg">{{ err.message }}</span>
+            <span class="jump-action">
+              <mat-icon>near_me</mat-icon> Jump to line {{ err.line }}
+            </span>
           </div>
         </div>
       </div>
@@ -303,26 +312,64 @@ import { ValidationError } from '../../../core/models/survey.model';
           </div>
         </div>
 
-        <!-- Right Column: Questionnaire Content Editor -->
+        <!-- Right Column: Interactive Code Editor with Line Numbers & Error Highlighting -->
         <div class="grid-col">
           <div class="col-header">
             <div class="step-header-wrap">
               <div class="config-step-badge">3</div>
               <span class="col-title">Questionnaire Definition Syntax</span>
             </div>
-            <span class="col-sub">{{ rawContent.length }} characters &bull; Live Two-Way XML</span>
+            <div class="editor-stats">
+              <span class="cursor-stat" *ngIf="cursorLine">Ln {{ cursorLine }}, Col {{ cursorCol }}</span>
+              <span class="col-sub">{{ linesCount }} lines &bull; {{ rawContent.length }} chars &bull; Live Two-Way XML</span>
+            </div>
           </div>
 
-          <div class="textarea-card">
-            <textarea
-              [(ngModel)]="rawContent"
-              (ngModelChange)="onXmlContentChange($event)"
-              name="rawContent"
-              rows="16"
-              class="code-textarea"
-              placeholder="// Type or paste your questionnaire XML definition here...&#10;// Or choose a file from your system on the left, or click 'Load Valid Study Sample' above."
-              required
-            ></textarea>
+          <div class="code-editor-shell">
+            <!-- Line Numbers Gutter -->
+            <div class="code-gutter" #codeGutter>
+              <div 
+                *ngFor="let line of lineNumbers" 
+                class="gutter-line" 
+                [class.has-error]="errorLineMap[line]"
+                [class.active-line]="activeErrorLine === line"
+                (click)="jumpToLine(line)"
+                [title]="errorLineMap[line] ? ('Line ' + line + ': ' + errorLineMap[line]) : ('Line ' + line)"
+              >
+                <span class="line-num">{{ line }}</span>
+                <span *ngIf="errorLineMap[line]" class="gutter-err-dot" title="Syntax error on this line">●</span>
+              </div>
+            </div>
+
+            <!-- Editor Body with Backdrop & Textarea -->
+            <div class="code-editor-body">
+              <!-- Synchronized Highlight Backdrop -->
+              <div class="highlight-backdrop" #highlightBackdrop>
+                <div 
+                  *ngFor="let line of lineNumbers" 
+                  class="backdrop-line"
+                  [class.has-error]="errorLineMap[line]"
+                  [class.active-line]="activeErrorLine === line"
+                ></div>
+              </div>
+
+              <!-- Main Editable Textarea -->
+              <textarea
+                #editorTextarea
+                [(ngModel)]="rawContent"
+                (ngModelChange)="onXmlContentChange($event)"
+                (scroll)="onEditorScroll()"
+                (click)="updateCursorPos()"
+                (keyup)="updateCursorPos()"
+                (keydown)="updateCursorPos()"
+                name="rawContent"
+                class="code-textarea"
+                placeholder="// Type or paste your questionnaire XML definition here...&#10;// Or choose a file from your system on the left, or click 'Load Valid Study Sample' above."
+                required
+                spellcheck="false"
+                wrap="off"
+              ></textarea>
+            </div>
           </div>
         </div>
       </div>
@@ -425,7 +472,7 @@ import { ValidationError } from '../../../core/models/survey.model';
       align-items: center;
       padding: 16px 20px;
       border-radius: 20px;
-      background: rgba(24, 24, 38, 0.55);
+      background: rgba(18, 17, 34, 0.92);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -510,7 +557,7 @@ import { ValidationError } from '../../../core/models/survey.model';
     /* 1. CONFIGURATION CARD */
     .config-card {
       border-radius: 20px;
-      background: rgba(24, 24, 38, 0.55);
+      background: rgba(18, 17, 34, 0.94);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -682,7 +729,7 @@ import { ValidationError } from '../../../core/models/survey.model';
     .config-input {
       width: 100%;
       height: 42px;
-      background: rgba(15, 15, 26, 0.6);
+      background: rgba(15, 15, 26, 0.8);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 12px;
       color: #F8F8FC;
@@ -696,7 +743,7 @@ import { ValidationError } from '../../../core/models/survey.model';
       outline: none;
       border-color: #2DD4F5;
       box-shadow: 0 0 14px -2px rgba(45, 212, 245, 0.3);
-      background: rgba(15, 15, 26, 0.85);
+      background: rgba(15, 15, 26, 0.95);
     }
 
     .input-wrap.input-error .config-input {
@@ -825,10 +872,10 @@ import { ValidationError } from '../../../core/models/survey.model';
     /* File Drop Zone */
     .file-drop-zone {
       flex: 1;
-      min-height: 380px;
+      min-height: 400px;
       border: 2px dashed rgba(255, 255, 255, 0.15);
       border-radius: 20px;
-      background: rgba(24, 24, 38, 0.45);
+      background: rgba(18, 17, 34, 0.92);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       display: flex;
@@ -844,7 +891,7 @@ import { ValidationError } from '../../../core/models/survey.model';
 
     .file-drop-zone:hover, .file-drop-zone.drag-over {
       border-color: #2DD4F5;
-      background: rgba(24, 24, 38, 0.65);
+      background: rgba(24, 23, 44, 0.96);
       box-shadow: 0 0 24px -4px rgba(45, 212, 245, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     }
 
@@ -905,9 +952,9 @@ import { ValidationError } from '../../../core/models/survey.model';
     /* Selected File Card */
     .selected-file-card {
       flex: 1;
-      min-height: 380px;
+      min-height: 400px;
       border-radius: 20px;
-      background: rgba(24, 24, 38, 0.55);
+      background: rgba(18, 17, 34, 0.95);
       border: 1px solid rgba(52, 211, 153, 0.3);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
@@ -1028,43 +1075,137 @@ import { ValidationError } from '../../../core/models/survey.model';
       background: rgba(251, 113, 133, 0.2);
     }
 
-    /* Textarea Card */
-    .textarea-card {
+    /* CODE EDITOR SHELL, GUTTER & ERROR HIGHLIGHTER */
+    .code-editor-shell {
       flex: 1;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      min-height: 400px;
+      height: 420px;
+      border-radius: 20px;
+      background: rgba(18, 17, 34, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .code-gutter {
+      width: 56px;
+      flex-shrink: 0;
+      background: rgba(12, 11, 24, 0.98);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      user-select: none;
+      overflow-y: hidden;
+      overflow-x: hidden;
+      padding: 14px 0;
+      box-sizing: border-box;
+    }
+
+    .gutter-line {
+      height: 24px;
+      line-height: 24px;
+      box-sizing: border-box;
+      padding: 0 8px 0 6px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: #64748B;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .gutter-line:hover {
+      color: #2DD4F5;
+      background: rgba(45, 212, 245, 0.1);
+    }
+
+    .gutter-line.has-error {
+      color: #FB7185 !important;
+      font-weight: 700;
+      background: rgba(251, 113, 133, 0.15);
+    }
+
+    .gutter-line.active-line {
+      color: #FFFFFF !important;
+      background: rgba(251, 113, 133, 0.35);
+    }
+
+    .gutter-err-dot {
+      font-size: 10px;
+      line-height: 10px;
+      color: #FB7185;
+      animation: pulse 1.5s infinite;
+    }
+
+    .code-editor-body {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .highlight-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      pointer-events: none;
+      padding: 14px 0;
+      box-sizing: border-box;
+    }
+
+    .backdrop-line {
+      height: 24px;
+      line-height: 24px;
+      box-sizing: border-box;
+      transition: background 0.15s ease;
+    }
+
+    .backdrop-line.has-error {
+      background: rgba(244, 63, 94, 0.16);
+      border-left: 3px solid #F43F5E;
+      box-shadow: inset 0 -1px 0 rgba(244, 63, 94, 0.25);
+    }
+
+    .backdrop-line.active-line {
+      background: rgba(244, 63, 94, 0.32);
+      border-left: 4px solid #FB7185;
+      box-shadow: 0 0 16px rgba(244, 63, 94, 0.5), inset 0 0 8px rgba(244, 63, 94, 0.2);
     }
 
     .code-textarea {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
-      min-height: 380px;
-      padding: 16px;
-      border-radius: 20px;
-      background: rgba(24, 24, 38, 0.45);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      color: #F8F8FC;
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      line-height: 1.6;
-      box-sizing: border-box;
-      resize: vertical;
-      transition: all 0.2s ease;
-    }
-
-    .code-textarea:focus {
+      z-index: 2;
+      background: transparent;
+      border: none;
       outline: none;
-      border-color: #2DD4F5;
-      box-shadow: 0 0 20px -2px rgba(45, 212, 245, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      resize: none;
+      padding: 14px 16px;
+      color: #F8F8FC;
+      caret-color: #2DD4F5;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 24px;
+      white-space: pre;
+      overflow: auto;
+      box-sizing: border-box;
+      tab-size: 2;
     }
 
-    /* Banners */
+    /* Banners & Error Items */
     .error-container {
-      background: rgba(251, 113, 133, 0.1);
-      border: 1px solid rgba(251, 113, 133, 0.3);
+      background: rgba(251, 113, 133, 0.12);
+      border: 1px solid rgba(251, 113, 133, 0.35);
       border-radius: 16px;
       padding: 16px 20px;
       margin-bottom: 20px;
@@ -1077,6 +1218,15 @@ import { ValidationError } from '../../../core/models/survey.model';
       color: #FB7185;
       font-size: 13.5px;
       margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .click-hint {
+      font-size: 12px;
+      color: #C4C4D6;
+      font-weight: normal;
+      margin-left: auto;
+      font-style: italic;
     }
 
     .error-list {
@@ -1090,6 +1240,18 @@ import { ValidationError } from '../../../core/models/survey.model';
       align-items: center;
       gap: 10px;
       font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .error-item.clickable {
+      cursor: pointer;
+    }
+
+    .error-item.clickable:hover {
+      background: rgba(251, 113, 133, 0.18);
+      transform: translateX(2px);
     }
 
     .line-badge {
@@ -1101,10 +1263,51 @@ import { ValidationError } from '../../../core/models/survey.model';
       padding: 2px 8px;
       border-radius: 6px;
       border: 1px solid rgba(251, 113, 133, 0.35);
+      flex-shrink: 0;
     }
 
     .error-msg {
       color: #F8F8FC;
+      flex: 1;
+    }
+
+    .jump-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      color: #A78BFA;
+      margin-left: auto;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(139, 108, 255, 0.15);
+      border: 1px solid rgba(139, 108, 255, 0.3);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .jump-action mat-icon {
+      font-size: 13px;
+      width: 13px;
+      height: 13px;
+    }
+
+    .editor-stats {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cursor-stat {
+      font-size: 11px;
+      color: #2DD4F5;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(45, 212, 245, 0.12);
+      border: 1px solid rgba(45, 212, 245, 0.25);
     }
 
     .success-banner {
@@ -1200,10 +1403,31 @@ import { ValidationError } from '../../../core/models/survey.model';
     /* Light Theme Overrides */
     :host-context([data-theme="light"]) .config-card,
     :host-context([data-theme="light"]) .sample-autofill-banner,
-    :host-context([data-theme="light"]) .file-drop-zone {
+    :host-context([data-theme="light"]) .file-drop-zone,
+    :host-context([data-theme="light"]) .code-editor-shell {
       background: #FFFFFF !important;
-      border: 1px solid #E2E8F0 !important;
+      border: 1px solid #CBD5E1 !important;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+    }
+    :host-context([data-theme="light"]) .code-gutter {
+      background: #F8FAFC !important;
+      border-right-color: #E2E8F0 !important;
+    }
+    :host-context([data-theme="light"]) .gutter-line {
+      color: #94A3B8;
+    }
+    :host-context([data-theme="light"]) .code-textarea {
+      color: #0F172A !important;
+      caret-color: #4F46E5 !important;
+    }
+    :host-context([data-theme="light"]) .backdrop-line.has-error {
+      background: rgba(254, 226, 226, 0.7) !important;
+      border-left-color: #EF4444 !important;
+    }
+    :host-context([data-theme="light"]) .inline-err-tag {
+      background: #FEE2E2 !important;
+      color: #DC2626 !important;
+      border-color: #FCA5A5 !important;
     }
     :host-context([data-theme="light"]) .config-input {
       background: #F8FAFC !important;
@@ -1250,16 +1474,6 @@ import { ValidationError } from '../../../core/models/survey.model';
       background: #EEF2FF !important;
       color: #4F46E5 !important;
       box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15) !important;
-    }
-    :host-context([data-theme="light"]) .code-textarea {
-      background: #FFFFFF !important;
-      border: 1px solid #CBD5E1 !important;
-      color: #0F172A !important;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
-    }
-    :host-context([data-theme="light"]) .code-textarea:focus {
-      border-color: #4F46E5 !important;
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
     }
     :host-context([data-theme="light"]) .btn-choose-file {
       background: #EEF2FF !important;
@@ -1318,6 +1532,15 @@ export class AdminSurveyUploadComponent implements OnInit {
   isTitleUnique = true;
   isSlugUnique = true;
 
+  // Editor cursor & active error tracking
+  @ViewChild('editorTextarea') editorTextarea?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('codeGutter') codeGutter?: ElementRef<HTMLDivElement>;
+  @ViewChild('highlightBackdrop') highlightBackdrop?: ElementRef<HTMLDivElement>;
+
+  activeErrorLine: number | null = null;
+  cursorLine = 1;
+  cursorCol = 1;
+
   constructor(
     private apiService: ApiService,
     private router: Router,
@@ -1328,6 +1551,70 @@ export class AdminSurveyUploadComponent implements OnInit {
     this.loadExistingSurveys();
     if (!this.rawContent) {
       this.loadSampleValid();
+    }
+  }
+
+  get linesCount(): number {
+    return this.rawContent ? this.rawContent.split('\n').length : 1;
+  }
+
+  get lineNumbers(): number[] {
+    const count = this.linesCount;
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }
+
+  get errorLineMap(): { [line: number]: string } {
+    const map: { [line: number]: string } = {};
+    for (const err of this.validationErrors) {
+      if (err.line) {
+        map[err.line] = err.message;
+      }
+    }
+    return map;
+  }
+
+  onEditorScroll(): void {
+    if (!this.editorTextarea) return;
+    const top = this.editorTextarea.nativeElement.scrollTop;
+    const left = this.editorTextarea.nativeElement.scrollLeft;
+
+    if (this.codeGutter) {
+      this.codeGutter.nativeElement.scrollTop = top;
+    }
+    if (this.highlightBackdrop) {
+      this.highlightBackdrop.nativeElement.scrollTop = top;
+      this.highlightBackdrop.nativeElement.scrollLeft = left;
+    }
+  }
+
+  updateCursorPos(): void {
+    if (!this.editorTextarea) return;
+    const textarea = this.editorTextarea.nativeElement;
+    const textBefore = textarea.value.substring(0, textarea.selectionStart);
+    const lines = textBefore.split('\n');
+    this.cursorLine = lines.length;
+    this.cursorCol = lines[lines.length - 1].length + 1;
+  }
+
+  jumpToLine(line: number): void {
+    this.activeErrorLine = line;
+    if (this.editorTextarea) {
+      const textarea = this.editorTextarea.nativeElement;
+      const lineHeight = 24;
+      const targetScroll = (line - 1) * lineHeight - 60;
+      textarea.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
+      textarea.focus();
+
+      // Highlight line text selection
+      const lines = this.rawContent.split('\n');
+      let charIndex = 0;
+      for (let i = 0; i < Math.min(line - 1, lines.length); i++) {
+        charIndex += lines[i].length + 1;
+      }
+      textarea.setSelectionRange(charIndex, charIndex + (lines[line - 1]?.length || 0));
+      this.updateCursorPos();
+
+      this.snackBar.open(`Navigated to Line ${line}: ${this.errorLineMap[line] || ''}`, 'Close', { duration: 3500 });
     }
   }
 
@@ -1550,7 +1837,6 @@ export class AdminSurveyUploadComponent implements OnInit {
 
   loadSampleValid(): void {
     let suffix = Math.floor(Math.random() * 9000 + 1000);
-    // Find a unique title & slug against existing surveys
     while (this.existingSurveys.some(s => s.slug === `study_${suffix}` || s.title === `Brand Perception Study ${suffix}`)) {
       suffix = Math.floor(Math.random() * 9000 + 1000);
     }
