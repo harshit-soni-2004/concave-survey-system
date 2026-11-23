@@ -15,6 +15,24 @@ import app.models # Ensure all models are registered with Base.metadata
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
     ensure_database_exists(TEST_DB)
+    import pymysql
+    conn = pymysql.connect(
+        host=settings.MYSQL_HOST,
+        port=settings.MYSQL_PORT,
+        user=settings.MYSQL_USER,
+        password=settings.MYSQL_PASSWORD,
+        database=TEST_DB,
+        autocommit=True
+    )
+    with conn.cursor() as cur:
+        cur.execute("SET FOREIGN_KEY_CHECKS = 0;")
+        cur.execute("SHOW TABLES;")
+        tables = [row[0] for row in cur.fetchall()]
+        for table in tables:
+            cur.execute(f"DROP TABLE IF EXISTS `{table}`;")
+        cur.execute("SET FOREIGN_KEY_CHECKS = 1;")
+    conn.close()
+
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:

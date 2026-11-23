@@ -5,6 +5,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
@@ -88,26 +89,46 @@ def create_survey(
             detail={"message": "Questionnaire validation failed", "errors": errors}
         )
 
-    slug = ast.get("id")
+    slug = (req.slug or ast.get("id") or "").strip()
     if not slug:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Survey missing id")
 
-    existing = db.query(Survey).filter(Survey.slug == slug).first()
-    if existing:
+    title = (req.title or ast.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Survey missing title")
+
+    target = req.target if req.target is not None else ast.get("target", 0)
+
+    # Constraint: Check duplicate slug (case-insensitive)
+    existing_slug = db.query(Survey).filter(func.lower(Survey.slug) == func.lower(slug)).first()
+    if existing_slug:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Survey with slug '{slug}' already exists")
+
+    # Constraint: Check duplicate name/title (case-insensitive)
+    existing_title = db.query(Survey).filter(func.lower(Survey.title) == func.lower(title)).first()
+    if existing_title:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"A survey with the name '{title}' already exists. Survey names must be unique across the organization."
+        )
 
     now = datetime.utcnow()
     survey = Survey(
         slug=slug,
-        title=ast.get("title", ""),
-        target=ast.get("target", 0),
+        title=title,
+        target=target,
         status="DRAFT",
+        deadline_at=req.deadline_at,
         created_by=current_user.id,
         created_at=now,
         updated_at=now
     )
     db.add(survey)
     db.flush()
+
+    ast["id"] = slug
+    ast["title"] = title
+    ast["target"] = target
 
     version = SurveyVersion(
         survey_id=survey.id,
@@ -366,10 +387,15 @@ def clone_survey(
     now = datetime.utcnow()
     base_slug = f"{source_survey.slug}_copy"
     new_slug = f"{base_slug}_{secrets.token_hex(3)}"
-    while db.query(Survey).filter(Survey.slug == new_slug).first():
+    while db.query(Survey).filter(func.lower(Survey.slug) == func.lower(new_slug)).first():
         new_slug = f"{base_slug}_{secrets.token_hex(3)}"
 
-    new_title = f"Copy of {source_survey.title}"
+    base_title = f"Copy of {source_survey.title}"
+    new_title = base_title
+    copy_idx = 2
+    while db.query(Survey).filter(func.lower(Survey.title) == func.lower(new_title)).first():
+        new_title = f"{base_title} ({copy_idx})"
+        copy_idx += 1
 
     new_ast = dict(latest_v.questionnaire_data) if latest_v.questionnaire_data else {}
     new_ast["id"] = new_slug

@@ -26,8 +26,9 @@ export class ApiService {
     return this.http.get<SurveyDetail>(`/api/surveys/${id}`);
   }
 
-  createSurvey(rawContent: string): Observable<SurveyDetail> {
-    return this.http.post<SurveyDetail>('/api/surveys', { raw_content: rawContent });
+  createSurvey(payload: string | { raw_content: string; title?: string; slug?: string; target?: number; deadline_at?: string }): Observable<SurveyDetail> {
+    const body = typeof payload === 'string' ? { raw_content: payload } : payload;
+    return this.http.post<SurveyDetail>('/api/surveys', body);
   }
 
   extractFile(file: File): Observable<{ filename: string; size: number; content: string }> {

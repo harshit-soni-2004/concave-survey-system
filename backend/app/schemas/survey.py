@@ -15,6 +15,10 @@ class ValidateResponse(BaseModel):
 
 class SurveyCreateRequest(BaseModel):
     raw_content: str
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    target: Optional[int] = None
+    deadline_at: Optional[datetime] = None
 
 class VersionUploadRequest(BaseModel):
     raw_content: str
