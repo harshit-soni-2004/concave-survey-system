@@ -783,10 +783,21 @@ import {
                 </div>
                 <div class="tokens-list">
                   <div *ngFor="let t of generatedTokens" class="token-item">
-                    <code>{{ t.url }}</code>
-                    <button mat-icon-button (click)="copyLink(t.url)" title="Copy link">
-                      <mat-icon>content_copy</mat-icon>
-                    </button>
+                    <code class="token-code-text">{{ getFullUrl(t.url) }}</code>
+                    <div class="token-action-btns">
+                      <button mat-icon-button (click)="copyLink(getFullUrl(t.url))" title="Copy Link" class="token-action-btn copy-btn">
+                        <mat-icon>content_copy</mat-icon>
+                      </button>
+                      <a mat-icon-button [href]="getWhatsAppShareUrl(t.url)" target="_blank" rel="noopener noreferrer" title="Share via WhatsApp" class="token-action-btn wa-btn">
+                        <mat-icon>chat</mat-icon>
+                      </a>
+                      <a mat-icon-button [href]="getEmailShareUrl(t.url)" title="Share via Email" class="token-action-btn email-btn">
+                        <mat-icon>email</mat-icon>
+                      </a>
+                      <a mat-icon-button [href]="getFullUrl(t.url)" target="_blank" rel="noopener noreferrer" title="Open Link" class="token-action-btn open-btn">
+                        <mat-icon>open_in_new</mat-icon>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1611,12 +1622,70 @@ import {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       background: var(--color-surface);
-      padding: 6px 10px;
-      border-radius: 4px;
+      padding: 6px 12px;
+      border-radius: 8px;
       border: 1px solid var(--color-border);
-      font-size: 12px;
+      font-size: 13px;
       color: var(--color-text);
+    }
+    .token-code-text {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--color-text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .token-action-btns {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .token-action-btn {
+      width: 36px !important;
+      height: 36px !important;
+      min-width: 36px !important;
+      min-height: 36px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 8px;
+      box-sizing: border-box !important;
+      overflow: visible !important;
+      color: var(--color-text-muted);
+      transition: all 0.2s ease;
+    }
+    .token-action-btn .mat-icon {
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+      line-height: 20px !important;
+      margin: 0 !important;
+      display: inline-block !important;
+    }
+    .token-action-btn:hover {
+      background: var(--color-surface-raised) !important;
+      color: var(--color-text);
+    }
+    .token-action-btn.wa-btn {
+      color: #25d366 !important;
+    }
+    .token-action-btn.wa-btn:hover {
+      color: #20ba5a !important;
+      background: rgba(37, 211, 102, 0.15) !important;
+    }
+    .token-action-btn.email-btn {
+      color: #38bdf8 !important;
+    }
+    .token-action-btn.email-btn:hover {
+      color: #0284c7 !important;
+      background: rgba(56, 189, 248, 0.15) !important;
     }
 
     /* Modal Backdrop */
@@ -2161,20 +2230,26 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  getFullUrl(url: string): string {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
   getPublicUrl(): string {
     return `${window.location.origin}/s/${this.analytics?.survey_slug}`;
   }
 
-  getWhatsAppShareUrl(): string {
-    const url = this.getPublicUrl();
-    const text = encodeURIComponent(`Hello! Please take our survey "${this.analytics?.survey_title}":\n${url}`);
+  getWhatsAppShareUrl(targetUrl?: string): string {
+    const url = targetUrl ? this.getFullUrl(targetUrl) : this.getPublicUrl();
+    const text = encodeURIComponent(`Hello! Please take our survey "${this.analytics?.survey_title || 'Survey'}":\n${url}`);
     return `https://api.whatsapp.com/send?text=${text}`;
   }
 
-  getEmailShareUrl(): string {
-    const url = this.getPublicUrl();
-    const subject = encodeURIComponent(`Survey Invitation: ${this.analytics?.survey_title}`);
-    const body = encodeURIComponent(`Hello,\n\nYou have been invited to participate in the survey "${this.analytics?.survey_title}".\n\nPlease open this link to respond:\n${url}\n\nThank you!`);
+  getEmailShareUrl(targetUrl?: string): string {
+    const url = targetUrl ? this.getFullUrl(targetUrl) : this.getPublicUrl();
+    const subject = encodeURIComponent(`Survey Invitation: ${this.analytics?.survey_title || 'Survey'}`);
+    const body = encodeURIComponent(`Hello,\n\nYou have been invited to participate in the survey "${this.analytics?.survey_title || 'Survey'}".\n\nPlease open this link to respond:\n${url}\n\nThank you!`);
     return `mailto:?subject=${subject}&body=${body}`;
   }
 
