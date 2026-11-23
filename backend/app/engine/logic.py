@@ -236,19 +236,34 @@ def is_question_visible(question: Dict[str, Any], answers: Dict[str, Any]) -> bo
     except Exception:
         return True
 
+def get_effective_questions(survey_ast: Dict[str, Any], rotation_arm: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Returns question list respecting balanced concept rotation (AB vs BA)."""
+    questions = list(survey_ast.get("questions", []))
+    if rotation_arm == "BA" and survey_ast.get("rotations"):
+        for rot in survey_ast.get("rotations", []):
+            arm_a = rot.get("arm_a")
+            arm_b = rot.get("arm_b")
+            q_ids = [q["id"] for q in questions]
+            if arm_a in q_ids and arm_b in q_ids:
+                idx_a = q_ids.index(arm_a)
+                idx_b = q_ids.index(arm_b)
+                questions[idx_a], questions[idx_b] = questions[idx_b], questions[idx_a]
+    return questions
+
 def get_next_question_info(
     survey_ast: Dict[str, Any],
     current_qid: Optional[str],
     current_answer: Any,
     answers: Dict[str, Any],
     path: List[str],
-    has_recorded_termination: bool = False
+    has_recorded_termination: bool = False,
+    rotation_arm: Optional[str] = None
 ) -> Tuple[Optional[Dict[str, Any]], bool, Optional[str]]:
     """
     Determines next question, whether to terminate, and termination reason if terminating.
     Returns: (next_question_dict_or_None, should_terminate, final_reason)
     """
-    questions: List[Dict[str, Any]] = survey_ast.get("questions", [])
+    questions: List[Dict[str, Any]] = get_effective_questions(survey_ast, rotation_arm)
     if not questions:
         return None, False, None
 

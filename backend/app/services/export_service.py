@@ -1,7 +1,8 @@
 import io
 import re
 import csv
-from typing import Any, Dict, List, Tuple
+import statistics
+from typing import Any, Dict, List, Set, Tuple
 from sqlalchemy.orm import Session
 from datetime import datetime
 from openpyxl import Workbook
@@ -11,6 +12,56 @@ from app.models.survey import Survey
 from app.models.survey_version import SurveyVersion
 from app.models.respondent import Respondent
 from app.models.answer import Answer
+
+def compute_quality_flags(survey_id: int, db: Session) -> Dict[str, Set[str]]:
+    """
+    Computes quality flags on the fly for all non-test respondents of a survey:
+    - 'speeder': completed in under 1/3 of the median completion time (only when >= 5 completes exist)
+    - 'straight-liner': identical answer value across all rows of any matrix question
+    Flags never delete or exclude responses.
+    """
+    completes = db.query(Respondent).filter(
+        Respondent.survey_id == survey_id,
+        Respondent.status == "COMPLETED",
+        Respondent.is_test == False
+    ).all()
+
+    flags_map: Dict[str, Set[str]] = {r.id: set() for r in completes}
+
+    # Speeder check (only when >= 5 completes exist)
+    if len(completes) >= 5:
+        durations = []
+        resp_durations = {}
+        for r in completes:
+            start = r.started_at or r.created_at
+            end = r.completed_at or r.updated_at
+            if start and end:
+                dur = max(0.0, (end - start).total_seconds())
+                durations.append(dur)
+                resp_durations[r.id] = dur
+        if len(durations) >= 5:
+            med = statistics.median(durations)
+            threshold = med / 3.0
+            for rid, dur in resp_durations.items():
+                if dur < threshold:
+                    flags_map[rid].add("speeder")
+
+    # Straight-liner check
+    all_resps = db.query(Respondent).filter(
+        Respondent.survey_id == survey_id,
+        Respondent.is_test == False
+    ).all()
+    for r in all_resps:
+        if r.id not in flags_map:
+            flags_map[r.id] = set()
+        ans_records = db.query(Answer).filter(Answer.respondent_id == r.id).all()
+        for a in ans_records:
+            if isinstance(a.answer_value, dict) and len(a.answer_value) > 1:
+                vals = list(a.answer_value.values())
+                if len(set(vals)) == 1:
+                    flags_map[r.id].add("straight-liner")
+
+    return flags_map
 
 def build_export_columns(survey: Survey) -> List[Dict[str, Any]]:
     """
@@ -88,10 +139,23 @@ def build_export_columns(survey: Survey) -> List[Dict[str, Any]]:
                         "type": "standard"
                     })
 
+    # Append Rotation arm and Quality flag columns at the end
+    columns.append({
+        "key": "rotation_arm",
+        "header": "Rotation arm",
+        "type": "rotation_arm"
+    })
+    columns.append({
+        "key": "quality_flag",
+        "header": "Quality flag",
+        "type": "quality_flag"
+    })
+
     return columns
 
 def get_export_rows(survey: Survey, columns: List[Dict[str, Any]], db: Session) -> Tuple[List[str], List[List[Any]]]:
     headers = [col["header"] for col in columns]
+    flags_map = compute_quality_flags(survey.id, db)
 
     # Query completed, non-test respondents
     respondents = db.query(Respondent)\
@@ -118,6 +182,16 @@ def get_export_rows(survey: Survey, columns: List[Dict[str, Any]], db: Session) 
                     row.append(resp.id)
                 elif col["key"] == "version":
                     row.append(resp.survey_version.version_number if resp.survey_version else 1)
+                continue
+
+            if col_type == "rotation_arm":
+                meta = resp.meta or {}
+                row.append(meta.get("rotation_arm", ""))
+                continue
+
+            if col_type == "quality_flag":
+                flags = sorted(flags_map.get(resp.id, set()))
+                row.append(", ".join(flags) if flags else "")
                 continue
 
             q_id = col["q_id"]

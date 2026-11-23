@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.seed import seed_database
 import app.models
-from app.routers import health, auth, surveys, respondent, dashboard_export
+from app.routers import health, auth, surveys, respondent, dashboard_export, analytics
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +47,7 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(surveys.router, prefix=settings.API_V1_STR)
 app.include_router(dashboard_export.router, prefix=settings.API_V1_STR)
 app.include_router(respondent.router, prefix=settings.API_V1_STR)
+app.include_router(analytics.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

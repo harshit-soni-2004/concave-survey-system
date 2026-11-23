@@ -109,6 +109,63 @@ def seed_database(db: Session = None):
                 print("Sample survey seeded and approved successfully.")
             else:
                 db.commit()
+
+        # 3. Seed bonus demo survey if present
+        bonus_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "samples", "bonus_demo_questionnaire.txt")
+        if os.path.exists(bonus_path):
+            with open(bonus_path, "r", encoding="utf-8") as f:
+                b_raw = f.read()
+
+            b_ast = parse_questionnaire(b_raw)
+            b_slug = b_ast.get("id") or "bonus_feature_demo"
+            b_existing = db.query(Survey).filter(Survey.slug == b_slug).first()
+
+            if not b_existing:
+                now = datetime.utcnow()
+                deadline = now + timedelta(days=15)
+                b_survey = Survey(
+                    slug=b_slug,
+                    title=b_ast.get("title", "Concave 2026 Advanced Product Study"),
+                    target=b_ast.get("target", 100),
+                    status="LIVE",
+                    created_by=admin_user_obj.id if admin_user_obj else None,
+                    deadline_at=deadline,
+                    created_at=now,
+                    updated_at=now
+                )
+                db.add(b_survey)
+                db.flush()
+
+                b_version = SurveyVersion(
+                    survey_id=b_survey.id,
+                    version_number=1,
+                    questionnaire_data=b_ast,
+                    raw_content=b_raw,
+                    status="APPROVED",
+                    uploaded_by=admin_user_obj.id if admin_user_obj else None,
+                    approved_by=admin_user_obj.id if admin_user_obj else None,
+                    approved_at=now,
+                    created_at=now
+                )
+                db.add(b_version)
+                db.flush()
+
+                b_survey.active_version_id = b_version.id
+
+                for q in b_ast.get("quotas", []):
+                    quota_record = Quota(
+                        survey_id=b_survey.id,
+                        question_id=q["question_id"],
+                        value=q["value"],
+                        question_id_2=q.get("question_id_2"),
+                        value_2=q.get("value_2"),
+                        target=q["target"],
+                        created_at=now
+                    )
+                    db.add(quota_record)
+
+                db.commit()
+                print("Bonus demo survey seeded and approved successfully.")
         else:
             db.commit()
     except Exception as e:

@@ -10,6 +10,8 @@ class Quota(Base):
     survey_id = Column(Integer, ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False)
     question_id = Column(String(64), nullable=False)
     value = Column(String(255), nullable=False)
+    question_id_2 = Column(String(64), nullable=True)
+    value_2 = Column(String(255), nullable=True)
     target = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

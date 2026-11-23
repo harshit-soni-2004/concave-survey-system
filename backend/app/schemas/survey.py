@@ -30,6 +30,8 @@ class QuotaItem(BaseModel):
     id: int
     question_id: str
     value: str
+    question_id_2: Optional[str] = None
+    value_2: Optional[str] = None
     target: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -53,6 +55,9 @@ class SurveyListItem(BaseModel):
     closed_reason: Optional[str] = None
     target: int
     completed_count: int = 0
+    started_count: int = 0
+    terminated_count: int = 0
+    last_activity: Optional[datetime] = None
     active_version_id: Optional[int] = None
     created_by: Optional[int] = None
     deadline_at: Optional[datetime] = None

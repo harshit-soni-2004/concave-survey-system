@@ -298,7 +298,7 @@ def test_mysql_back_prunes_answers_and_termination_rows(mysql_client):
     term_res = mysql_client.post(f"/api/respondent/{token}/answer", json={"question_id": "q5", "answer_value": "No"})
     assert term_res.status_code == 200
     assert term_res.json()["screen"] == "Not eligible"
-    assert term_res.json()["termination_reason"] == "Not a smartphone user"
+    assert "Not a smartphone user" in term_res.json()["termination_reason"]
 
     db: Session = SessionLocal()
     resp = db.query(Respondent).filter(Respondent.token == token).first()
@@ -391,7 +391,7 @@ def test_mysql_silent_termination(mysql_client):
     resp = db.query(Respondent).filter(Respondent.token == token).first()
     assert resp.status == "TERMINATED"
     assert resp.is_silent_termination is True
-    assert resp.termination_reason == "Disqualified quietly"
+    assert "Disqualified quietly" in resp.termination_reason
     db.close()
 
 

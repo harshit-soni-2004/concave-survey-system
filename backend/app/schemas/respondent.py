@@ -36,10 +36,15 @@ class QuestionView(BaseModel):
     low_label: Optional[str] = None
     high_label: Optional[str] = None
     format: Optional[str] = None
+    translations: Optional[Dict[str, str]] = None
+    active_language: Optional[str] = "en"
     current_answer: Optional[Any] = None
     current_other_text: Optional[str] = None
     can_go_back: bool = False
     progress_percentage: int = 0
+
+class LanguageUpdateRequest(BaseModel):
+    language: str
 
 class RespondentSessionResponse(BaseModel):
     status: str # NOT_STARTED, IN_PROGRESS, COMPLETED, TERMINATED, CLOSED

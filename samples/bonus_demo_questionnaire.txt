@@ -1,0 +1,89 @@
+<survey id="bonus_feature_demo" title="Concave 2026 Advanced Product Study" target="100">
+
+<question id="q_consent" type="consent" required>
+  <text>Do you consent to participate in this advanced survey research study?</text>
+  <text lang="hi">क्या आप इस शोध अध्ययन में भाग लेने के लिए सहमति देते हैं?</text>
+  <option>Yes</option>
+  <option lang="hi">हाँ</option>
+  <option>No</option>
+  <option lang="hi">नहीं</option>
+</question>
+
+<question id="q_gen" type="single" required>
+  <text>What is your gender?</text>
+  <text lang="hi">आपका लिंग क्या है?</text>
+  <option>Male</option>
+  <option lang="hi">पुरुष</option>
+  <option>Female</option>
+  <option lang="hi">महिला</option>
+  <option>Non-binary / Other</option>
+  <option lang="hi">अन्य</option>
+</question>
+
+<question id="q_city" type="dropdown" required terminate-on="Other" reason="Tier-1 location criteria not met">
+  <text>Which city do you reside in?</text>
+  <text lang="hi">आप किस शहर में रहते हैं?</text>
+  <option>Mumbai</option>
+  <option lang="hi">मुंबई</option>
+  <option>Delhi</option>
+  <option lang="hi">दिल्ली</option>
+  <option>Bengaluru</option>
+  <option lang="hi">बेंगलुरु</option>
+  <option>Pune</option>
+  <option lang="hi">पुणे</option>
+  <option>Other</option>
+  <option lang="hi">अन्य</option>
+</question>
+
+<question id="q_smartphone" type="yesno" required terminate-on="No" reason="Not an active smartphone owner">
+  <text>Do you own and use a modern smartphone daily?</text>
+  <text lang="hi">क्या आप दैनिक रूप से स्मार्टफोन का उपयोग करते हैं?</text>
+</question>
+
+<!-- Matrix with per-respondent row shuffling -->
+<question id="q_matrix_eval" type="matrix" required shuffle="true">
+  <text>Please rate your satisfaction with following smartphone aspects:</text>
+  <text lang="hi">कृपया अपने स्मार्टफोन के निम्नलिखित पहलुओं का मूल्यांकन करें:</text>
+  <row>Battery Longevity</row>
+  <row lang="hi">बैटरी बैकअप</row>
+  <row>Camera Quality</row>
+  <row lang="hi">कैमरा गुणवत्ता</row>
+  <row>Display Clarity</row>
+  <row lang="hi">डिस्प्ले स्पष्टता</row>
+  <row>Build & Design</row>
+  <row lang="hi">बिल्ड और डिज़ाइन</row>
+  <option>1 - Very Poor</option>
+  <option>2 - Poor</option>
+  <option>3 - Neutral</option>
+  <option>4 - Good</option>
+  <option>5 - Excellent</option>
+</question>
+
+<!-- Balanced rotation block: concepts A and B evaluated in alternating AB / BA arms -->
+<rotation arm_a="q_concept_a" arm_b="q_concept_b"/>
+
+<question id="q_concept_a" type="rating" min="1" max="5" low-label="Dislike completely" high-label="Love it" required>
+  <text>Concept A: Ultra-thin folding device with dual vapor chamber cooling. How appealing is this concept?</text>
+  <text lang="hi">कॉन्सेप्ट A: अल्ट्रा-थिन फोल्डिंग डिवाइस। यह कॉन्सेप्ट आपको कितना आकर्षक लगता है?</text>
+</question>
+
+<question id="q_concept_b" type="rating" min="1" max="5" low-label="Dislike completely" high-label="Love it" required>
+  <text>Concept B: AI-native modular device with swappable camera lenses. How appealing is this concept?</text>
+  <text lang="hi">कॉन्सेप्ट B: स्वैपेबल कैमरा लेंस वाला AI-नेटिव मॉड्यूलर डिवाइस। यह कितना आकर्षक लगता है?</text>
+</question>
+
+<question id="q_nps" type="nps" required>
+  <text>How likely are you to recommend our survey platform to industry colleagues?</text>
+  <text lang="hi">आप हमारे सर्वे प्लेटफॉर्म की सिफारिश करने की कितनी संभावना रखते हैं?</text>
+</question>
+
+<!-- Standard Quotas -->
+<quota question="q_gen" value="Male" target="50"/>
+<quota question="q_gen" value="Female" target="50"/>
+
+<!-- Nested Quotas: 2-dimensional quota enforcement -->
+<quota question="q_city" value="Mumbai" question2="q_gen" value2="Male" target="25"/>
+<quota question="q_city" value="Delhi" question2="q_gen" value2="Female" target="25"/>
+<quota question="q_city" value="Bengaluru" question2="q_gen" value2="Male" target="25"/>
+
+</survey>

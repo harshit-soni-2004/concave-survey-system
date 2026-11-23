@@ -16,6 +16,7 @@ class Respondent(Base):
     termination_reason = Column(Text, nullable=True)
     current_question_id = Column(String(64), nullable=True)
     path = Column(JSON, nullable=True) # JSON list of question ids visited
+    meta = Column(JSON, nullable=False, default=dict) # Display order, rotation arm, language
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

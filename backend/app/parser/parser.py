@@ -45,7 +45,8 @@ def parse_questionnaire(content: str) -> Dict[str, Any]:
         "target": 0,
         "line_number": 1,
         "questions": [],
-        "quotas": []
+        "quotas": [],
+        "rotations": []
     }
     
     current_question: Optional[Dict[str, Any]] = None
@@ -101,38 +102,50 @@ def parse_questionnaire(content: str) -> Dict[str, Any]:
                         if k not in current_question:
                             current_question[k] = v
                             
-            elif tag_name == "text":
+            elif tag_name in ("text", "trans"):
                 if not is_closing:
-                    close_tag = "</text>"
+                    close_tag = f"</{tag_name}>"
                     close_idx = line.find(close_tag, end_tag_pos)
+                    lang = attrs.get("lang")
                     if close_idx != -1:
                         text_val = line[end_tag_pos:close_idx].strip()
                         if current_question:
-                            current_question["text"] = text_val
+                            if lang:
+                                current_question.setdefault("translations", {})[lang] = text_val
+                            else:
+                                current_question["text"] = text_val
                         pos = close_idx + len(close_tag)
                         continue
                     else:
                         text_val = line[end_tag_pos:].strip()
                         if current_question:
-                            current_question["text"] = text_val
+                            if lang:
+                                current_question.setdefault("translations", {})[lang] = text_val
+                            else:
+                                current_question["text"] = text_val
                             
             elif tag_name == "option":
                 if not is_closing:
                     close_tag = "</option>"
                     close_idx = line.find(close_tag, end_tag_pos)
+                    lang = attrs.get("lang")
                     if close_idx != -1:
                         opt_text = line[end_tag_pos:close_idx].strip()
-                        opt_dict = {
-                            "text": opt_text,
-                            "line_number": line_idx,
-                            "fixed": bool(attrs.get("fixed", False)),
-                            "other": bool(attrs.get("other", False)),
-                            "exclusive": bool(attrs.get("exclusive", False)),
-                            "skip_to": attrs.get("skip-to") or attrs.get("skip_to"),
-                            "attributes": attrs
-                        }
                         if current_question is not None:
-                            current_question["options"].append(opt_dict)
+                            if lang and current_question.get("options"):
+                                current_question["options"][-1].setdefault("translations", {})[lang] = opt_text
+                            else:
+                                opt_dict = {
+                                    "text": opt_text,
+                                    "line_number": line_idx,
+                                    "fixed": bool(attrs.get("fixed", False)),
+                                    "other": bool(attrs.get("other", False)),
+                                    "exclusive": bool(attrs.get("exclusive", False)),
+                                    "skip_to": attrs.get("skip-to") or attrs.get("skip_to"),
+                                    "translations": {},
+                                    "attributes": attrs
+                                }
+                                current_question["options"].append(opt_dict)
                         pos = close_idx + len(close_tag)
                         continue
                         
@@ -140,28 +153,48 @@ def parse_questionnaire(content: str) -> Dict[str, Any]:
                 if not is_closing:
                     close_tag = "</row>"
                     close_idx = line.find(close_tag, end_tag_pos)
+                    lang = attrs.get("lang")
                     if close_idx != -1:
                         row_text = line[end_tag_pos:close_idx].strip()
-                        row_dict = {
-                            "text": row_text,
-                            "line_number": line_idx,
-                            "attributes": attrs
-                        }
                         if current_question is not None:
-                            current_question["rows"].append(row_dict)
+                            if lang and current_question.get("rows"):
+                                current_question["rows"][-1].setdefault("translations", {})[lang] = row_text
+                            else:
+                                row_dict = {
+                                    "text": row_text,
+                                    "line_number": line_idx,
+                                    "translations": {},
+                                    "attributes": attrs
+                                }
+                                current_question["rows"].append(row_dict)
                         pos = close_idx + len(close_tag)
                         continue
                         
             elif tag_name == "quota":
                 target_val = attrs.get("target", 0)
+                q2_id = attrs.get("question2") or attrs.get("question_id_2") or attrs.get("question_2") or attrs.get("q2")
+                v2_val = attrs.get("value2") or attrs.get("value_2") or attrs.get("v2")
                 quota_dict = {
                     "question_id": attrs.get("question") or attrs.get("question_id"),
                     "value": str(attrs.get("value", "")),
+                    "question_id_2": q2_id,
+                    "value_2": str(v2_val) if v2_val is not None else None,
                     "target": int(target_val) if str(target_val).isdigit() else target_val,
                     "line_number": line_idx,
                     "attributes": attrs
                 }
                 survey_data["quotas"].append(quota_dict)
+
+            elif tag_name == "rotation":
+                arm_a = attrs.get("arm_a") or attrs.get("arm1") or attrs.get("concept_a") or attrs.get("first") or attrs.get("a")
+                arm_b = attrs.get("arm_b") or attrs.get("arm2") or attrs.get("concept_b") or attrs.get("second") or attrs.get("b")
+                rot_dict = {
+                    "arm_a": arm_a,
+                    "arm_b": arm_b,
+                    "line_number": line_idx,
+                    "attributes": attrs
+                }
+                survey_data["rotations"].append(rot_dict)
                 
             pos = end_tag_pos
 

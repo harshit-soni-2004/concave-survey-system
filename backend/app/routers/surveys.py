@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta
+import secrets
+import io
+import zipfile
+import xml.etree.ElementTree as ET
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
@@ -25,6 +29,42 @@ from app.schemas.survey import (
 )
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
+
+@router.post("/extract-file")
+async def extract_questionnaire_file(
+    file: UploadFile = File(...),
+    current_user: AdminUser = Depends(require_role(["admin", "researcher"]))
+):
+    try:
+        content_bytes = await file.read()
+        filename = (file.filename or "").lower()
+        
+        if filename.endswith(".docx"):
+            with zipfile.ZipFile(io.BytesIO(content_bytes)) as z:
+                xml_content = z.read("word/document.xml")
+                tree = ET.fromstring(xml_content)
+                texts = []
+                for p in tree.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p"):
+                    p_text = "".join(node.text for node in p.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t") if node.text)
+                    if p_text:
+                        texts.append(p_text)
+                extracted = "\n".join(texts)
+        else:
+            try:
+                extracted = content_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                extracted = content_bytes.decode("latin-1")
+                
+        return {
+            "filename": file.filename,
+            "size": len(content_bytes),
+            "content": extracted
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not read or extract file: {str(e)}"
+        )
 
 @router.post("/validate", response_model=ValidateResponse)
 def validate_questionnaire(req: ValidateRequest):
@@ -129,15 +169,30 @@ def list_surveys(
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(require_role(["admin", "researcher"]))
 ):
+    from sqlalchemy import func
     surveys = db.query(Survey).order_by(Survey.created_at.desc()).all()
     res = []
     for s in surveys:
-        cnt = db.query(Respondent).filter(
+        counts = db.query(
+            Respondent.status, func.count(Respondent.id)
+        ).filter(
             Respondent.survey_id == s.id,
-            Respondent.status == "COMPLETED",
             Respondent.is_test == False
-        ).count()
-        setattr(s, "completed_count", cnt)
+        ).group_by(Respondent.status).all()
+        c_map = dict(counts)
+        completed = c_map.get("COMPLETED", 0)
+        in_prog = c_map.get("IN_PROGRESS", 0)
+        term = c_map.get("TERMINATED", 0)
+
+        setattr(s, "completed_count", completed)
+        setattr(s, "started_count", completed + in_prog + term)
+        setattr(s, "terminated_count", term)
+
+        last_resp = db.query(func.max(Respondent.updated_at)).filter(
+            Respondent.survey_id == s.id,
+            Respondent.is_test == False
+        ).scalar()
+        setattr(s, "last_activity", last_resp or s.updated_at)
         res.append(s)
     return res
 
@@ -232,6 +287,8 @@ def approve_version(
             survey_id=survey.id,
             question_id=q["question_id"],
             value=str(q["value"]),
+            question_id_2=q.get("question_id_2"),
+            value_2=str(q["value_2"]) if q.get("value_2") is not None else None,
             target=int(q["target"]),
             created_at=now
         )
@@ -288,3 +345,58 @@ def update_survey_deadline(
     survey.updated_at = datetime.utcnow()
     db.commit()
     return get_survey_detail(survey.id, db)
+
+@router.post("/{survey_id}/clone", response_model=SurveyDetailResponse, status_code=status.HTTP_201_CREATED)
+def clone_survey(
+    survey_id: int,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(require_role(["admin", "researcher"]))
+):
+    source_survey = db.query(Survey).filter(Survey.id == survey_id).first()
+    if not source_survey:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
+
+    latest_v = db.query(SurveyVersion).filter(
+        SurveyVersion.survey_id == source_survey.id
+    ).order_by(SurveyVersion.version_number.desc()).first()
+
+    if not latest_v:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Survey has no versions to clone")
+
+    now = datetime.utcnow()
+    base_slug = f"{source_survey.slug}_copy"
+    new_slug = f"{base_slug}_{secrets.token_hex(3)}"
+    while db.query(Survey).filter(Survey.slug == new_slug).first():
+        new_slug = f"{base_slug}_{secrets.token_hex(3)}"
+
+    new_title = f"Copy of {source_survey.title}"
+
+    new_ast = dict(latest_v.questionnaire_data) if latest_v.questionnaire_data else {}
+    new_ast["id"] = new_slug
+    new_ast["title"] = new_title
+
+    new_survey = Survey(
+        slug=new_slug,
+        title=new_title,
+        status="DRAFT",
+        target=source_survey.target,
+        created_by=current_user.id,
+        created_at=now,
+        updated_at=now
+    )
+    db.add(new_survey)
+    db.flush()
+
+    new_version = SurveyVersion(
+        survey_id=new_survey.id,
+        version_number=1,
+        questionnaire_data=new_ast,
+        raw_content=latest_v.raw_content,
+        status="DRAFT",
+        uploaded_by=current_user.id,
+        created_at=now
+    )
+    db.add(new_version)
+    db.commit()
+
+    return get_survey_detail(new_survey.id, db)

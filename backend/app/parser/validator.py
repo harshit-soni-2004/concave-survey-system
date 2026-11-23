@@ -174,11 +174,13 @@ def validate_questionnaire_ast(ast: Dict[str, Any]) -> List[Dict[str, Any]]:
         if qid:
             seen_ids.add(qid)
 
-    # Validate quotas
+    # Validate quotas (including nested quotas)
     for quota in ast.get("quotas", []):
         q_line = quota.get("line_number", survey_line)
         target_qid = quota.get("question_id")
         val = quota.get("value")
+        target_qid_2 = quota.get("question_id_2")
+        val_2 = quota.get("value_2")
         q_target = quota.get("target")
 
         if not target_qid or target_qid not in all_question_ids:
@@ -195,8 +197,33 @@ def validate_questionnaire_ast(ast: Dict[str, Any]) -> List[Dict[str, Any]]:
         if valid_opts and val not in valid_opts:
             add_error(q_line, f"Quota value '{val}' is not a valid option for question '{target_qid}'")
 
+        # Nested quota validation
+        if target_qid_2 or val_2:
+            if not target_qid_2 or not val_2:
+                add_error(q_line, f"Nested quota must specify both question2 and value2")
+            elif target_qid_2 not in all_question_ids:
+                add_error(q_line, f"Quota references nonexistent question '{target_qid_2}'")
+            else:
+                target_q_2 = question_map[target_qid_2]
+                t_type_2 = target_q_2.get("type", "")
+                if t_type_2 not in CATEGORICAL_QUOTA_TYPES:
+                    add_error(q_line, f"Quota on question '{target_qid_2}' of type '{t_type_2}' with value '{val_2}' is invalid: question must be categorical ({', '.join(sorted(CATEGORICAL_QUOTA_TYPES))})")
+                valid_opts_2 = get_question_valid_options(target_q_2)
+                if valid_opts_2 and val_2 not in valid_opts_2:
+                    add_error(q_line, f"Quota value '{val_2}' is not a valid option for question '{target_qid_2}'")
+
         if not isinstance(q_target, int) or q_target <= 0:
             add_error(q_line, f"Quota target must be a positive integer for question '{target_qid}'")
+
+    # Validate rotation blocks
+    for rot in ast.get("rotations", []):
+        r_line = rot.get("line_number", survey_line)
+        arm_a = rot.get("arm_a")
+        arm_b = rot.get("arm_b")
+        if not arm_a or arm_a not in all_question_ids:
+            add_error(r_line, f"Rotation references nonexistent question '{arm_a}'")
+        if not arm_b or arm_b not in all_question_ids:
+            add_error(r_line, f"Rotation references nonexistent question '{arm_b}'")
 
     return errors
 
