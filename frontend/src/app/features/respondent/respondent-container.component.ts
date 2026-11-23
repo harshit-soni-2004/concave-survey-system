@@ -30,8 +30,28 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
             <span class="study-title">{{ session.survey_title }}</span>
             <span *ngIf="session.is_test" class="test-pill">PREVIEW / TEST MODE</span>
           </div>
-          <div class="header-right" *ngIf="session.is_test || authService.isLoggedIn()">
-            <button mat-button color="primary" class="nav-back-btn" (click)="goToDashboard()">
+          <div class="header-right">
+            <!-- Language toggle if translations exist -->
+            <div class="lang-toggle-bar" *ngIf="hasTranslations()">
+              <button
+                type="button"
+                class="lang-pill"
+                [class.active]="currentLang === 'en'"
+                (click)="switchLanguage('en')"
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                class="lang-pill"
+                [class.active]="currentLang === 'hi'"
+                (click)="switchLanguage('hi')"
+              >
+                हिंदी
+              </button>
+            </div>
+
+            <button *ngIf="session.is_test || authService.isLoggedIn()" mat-button color="primary" class="nav-back-btn" (click)="goToDashboard()">
               <mat-icon>arrow_back</mat-icon> Return to Dashboard
             </button>
           </div>
@@ -60,6 +80,7 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
         <div *ngIf="!loading && session?.screen === 'Question' && session?.question" class="question-stage">
           <app-question-renderer
             [question]="session!.question!"
+            [currentLang]="currentLang"
             [submitting]="submitting"
             (answerSubmitted)="onAnswerSubmitted($event)"
             (backRequested)="onBackRequested()"
@@ -197,6 +218,29 @@ import { QuestionRendererComponent } from './question-renderer/question-renderer
     .header-right {
       display: flex;
       align-items: center;
+      gap: 8px;
+    }
+    .lang-toggle-bar {
+      display: inline-flex;
+      background: #f1f5f9;
+      padding: 2px;
+      border-radius: 20px;
+    }
+    .lang-pill {
+      border: none;
+      background: transparent;
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-pill.active {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     .nav-back-btn {
       font-size: 13px;
@@ -308,6 +352,7 @@ export class RespondentContainerComponent implements OnInit {
   submitting = false;
   errorMsg = '';
   activeToken = '';
+  currentLang = 'en';
 
   constructor(
     private route: ActivatedRoute,
@@ -315,6 +360,23 @@ export class RespondentContainerComponent implements OnInit {
     private apiService: ApiService,
     public authService: AuthService
   ) {}
+
+  hasTranslations(): boolean {
+    const q = this.session?.question;
+    if (!q) return false;
+    if (q.translations && Object.keys(q.translations).length > 0) return true;
+    if (q.options?.some(o => o.translations && Object.keys(o.translations).length > 0)) return true;
+    if (q.rows?.some(r => r.translations && Object.keys(r.translations).length > 0)) return true;
+    return false;
+  }
+
+  switchLanguage(lang: string): void {
+    if (this.currentLang === lang || !this.activeToken) return;
+    this.currentLang = lang;
+    this.apiService.updateLanguage(this.activeToken, lang).subscribe({
+      error: err => console.error('Failed to update language preference', err)
+    });
+  }
 
   ngOnInit(): void {
     // Check if token route /r/:token or slug route /s/:slug
@@ -355,6 +417,9 @@ export class RespondentContainerComponent implements OnInit {
     this.apiService.getRespondentSession(token).subscribe({
       next: sess => {
         this.session = sess;
+        if (sess.question?.active_language) {
+          this.currentLang = sess.question.active_language;
+        }
         this.loading = false;
       },
       error: err => {

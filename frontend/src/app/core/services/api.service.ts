@@ -6,6 +6,7 @@ import {
   SurveyDetail,
   ValidateResponse,
   DashboardData,
+  DropoffReport,
   BatchTokensResponse,
   RespondentSession
 } from '../models/survey.model';
@@ -27,6 +28,12 @@ export class ApiService {
 
   createSurvey(rawContent: string): Observable<SurveyDetail> {
     return this.http.post<SurveyDetail>('/api/surveys', { raw_content: rawContent });
+  }
+
+  extractFile(file: File): Observable<{ filename: string; size: number; content: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ filename: string; size: number; content: string }>('/api/surveys/extract-file', formData);
   }
 
   validateSurvey(rawContent: string): Observable<ValidateResponse> {
@@ -57,9 +64,17 @@ export class ApiService {
     return this.http.post<{ token: string; survey_slug: string; url: string }>(`/api/surveys/${surveyId}/test-session`, {});
   }
 
+  cloneSurvey(id: number): Observable<SurveyDetail> {
+    return this.http.post<SurveyDetail>(`/api/surveys/${id}/clone`, {});
+  }
+
   // Dashboard & Exports
   getDashboard(surveyId: number): Observable<DashboardData> {
     return this.http.get<DashboardData>(`/api/surveys/${surveyId}/dashboard`);
+  }
+
+  getDropoffReport(surveyId: number): Observable<DropoffReport> {
+    return this.http.get<DropoffReport>(`/api/surveys/${surveyId}/dropoff`);
   }
 
   getExportCsv(surveyId: number): Observable<Blob> {
@@ -68,6 +83,32 @@ export class ApiService {
 
   getExportXlsx(surveyId: number): Observable<Blob> {
     return this.http.get(`/api/surveys/${surveyId}/export?format=xlsx`, { responseType: 'blob' });
+  }
+
+  // Analytics & Health
+  getOverview(): Observable<import('../models/survey.model').OverviewResponse> {
+    return this.http.get<import('../models/survey.model').OverviewResponse>('/api/overview');
+  }
+
+  getSurveyAnalytics(id: number, days: number = 14): Observable<import('../models/survey.model').SurveyAnalyticsResponse> {
+    return this.http.get<import('../models/survey.model').SurveyAnalyticsResponse>(`/api/surveys/${id}/analytics?days=${days}`);
+  }
+
+  getSurveyRespondents(
+    id: number,
+    status: string = '',
+    page: number = 1,
+    pageSize: number = 10
+  ): Observable<import('../models/survey.model').SurveyRespondentsResponse> {
+    let url = `/api/surveys/${id}/respondents?page=${page}&page_size=${pageSize}`;
+    if (status) {
+      url += `&status=${encodeURIComponent(status)}`;
+    }
+    return this.http.get<import('../models/survey.model').SurveyRespondentsResponse>(url);
+  }
+
+  getHealth(): Observable<import('../models/survey.model').HealthStatusResponse> {
+    return this.http.get<import('../models/survey.model').HealthStatusResponse>('/api/health');
   }
 
   // Respondent Endpoints
@@ -89,5 +130,9 @@ export class ApiService {
 
   goBack(token: string): Observable<RespondentSession> {
     return this.http.post<RespondentSession>(`/api/respondent/${token}/back`, {});
+  }
+
+  updateLanguage(token: string, language: string): Observable<RespondentSession> {
+    return this.http.post<RespondentSession>(`/api/respondent/${token}/language`, { language });
   }
 }

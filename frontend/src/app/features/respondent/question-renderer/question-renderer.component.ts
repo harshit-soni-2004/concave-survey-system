@@ -29,7 +29,7 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
       <!-- Question Prompt -->
       <div class="question-header">
         <h2 class="question-text">
-          {{ question.text }}
+          {{ getDisplayText() }}
           <span *ngIf="question.required" class="required-star" title="Required">*</span>
         </h2>
         <span *ngIf="question.type === 'multi' && question.max" class="hint-text">
@@ -55,7 +55,7 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
               (click)="onSelectSingleOption(opt.text)"
             >
               <mat-radio-button [value]="opt.text" class="opt-radio">
-                <span class="option-label-text">{{ opt.text }}</span>
+                <span class="option-label-text">{{ getOptionText(opt) }}</span>
               </mat-radio-button>
             </div>
           </mat-radio-group>
@@ -80,7 +80,7 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
               [checked]="isMultiOptionChecked(opt.text)"
               class="opt-checkbox"
             >
-              <span class="option-label-text">{{ opt.text }}</span>
+              <span class="option-label-text">{{ getOptionText(opt) }}</span>
             </mat-checkbox>
           </div>
           <!-- Other Text Box for Multi -->
@@ -107,7 +107,7 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
                 />
               </div>
               <mat-option *ngFor="let opt of filteredDropdownOptions()" [value]="opt.text">
-                {{ opt.text }}
+                {{ getOptionText(opt) }}
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -167,12 +167,12 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
               <thead>
                 <tr>
                   <th class="matrix-item-col"></th>
-                  <th *ngFor="let opt of question.options" class="matrix-opt-col">{{ opt.text }}</th>
+                  <th *ngFor="let opt of question.options" class="matrix-opt-col">{{ getOptionText(opt) }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let row of question.rows">
-                  <td class="matrix-row-title">{{ row.text }}</td>
+                  <td class="matrix-row-title">{{ getRowText(row) }}</td>
                   <td *ngFor="let opt of question.options" class="matrix-opt-cell">
                     <mat-radio-button
                       [checked]="matrixAnswers[row.text] === opt.text"
@@ -232,7 +232,7 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
 
         <!-- 13. Info -->
         <div *ngIf="question.type === 'info'" class="info-content">
-          <p class="info-text">{{ question.text }}</p>
+          <p class="info-text">{{ getDisplayText() }}</p>
         </div>
 
       </div>
@@ -518,6 +518,7 @@ import { QuestionView, QuestionOption } from '../../../core/models/survey.model'
 export class QuestionRendererComponent implements OnChanges {
   @Input() question!: QuestionView;
   @Input() submitting = false;
+  @Input() currentLang: string = 'en';
 
   @Output() answerSubmitted = new EventEmitter<{ answer: any; otherText?: string }>();
   @Output() backRequested = new EventEmitter<void>();
@@ -528,6 +529,27 @@ export class QuestionRendererComponent implements OnChanges {
   matrixAnswers: { [row: string]: string } = {};
   dropdownSearch = '';
   errorMessage = '';
+
+  getDisplayText(): string {
+    if (this.currentLang && this.currentLang !== 'en' && this.question?.translations?.[this.currentLang]) {
+      return this.question.translations[this.currentLang];
+    }
+    return this.question?.text || '';
+  }
+
+  getOptionText(opt: any): string {
+    if (this.currentLang && this.currentLang !== 'en' && opt?.translations?.[this.currentLang]) {
+      return opt.translations[this.currentLang];
+    }
+    return opt?.text || '';
+  }
+
+  getRowText(row: any): string {
+    if (this.currentLang && this.currentLang !== 'en' && row?.translations?.[this.currentLang]) {
+      return row.translations[this.currentLang];
+    }
+    return row?.text || '';
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['question'] && this.question) {

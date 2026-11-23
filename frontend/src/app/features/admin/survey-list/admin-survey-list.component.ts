@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -6,13 +6,20 @@ import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartData, ChartType } from 'chart.js';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
-import { SurveyListItem } from '../../../core/models/survey.model';
+import { AuthService } from '../../../core/services/auth.service';
+import { ThemeService } from '../../../core/services/theme.service';
+import { 
+  SurveyListItem, 
+  OverviewResponse, 
+  QuotaAlertItem, 
+  RecentEventItem 
+} from '../../../core/models/survey.model';
 
 @Component({
   selector: 'app-admin-survey-list',
@@ -25,158 +32,315 @@ import { SurveyListItem } from '../../../core/models/survey.model';
     MatTableModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule,
     MatProgressBarModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    BaseChartDirective
   ],
   template: `
-    <div class="dashboard-container">
-      <!-- 1. Executive Header -->
-      <div class="dashboard-header">
+    <div class="portfolio-container">
+      <!-- Top Title Bar -->
+      <div class="portfolio-header">
         <div>
-          <h1 class="page-title">Research Operations Dashboard</h1>
-          <p class="subtitle">Monitor real-time field progress, launch live surveys, and track complete quotas.</p>
+          <h1 class="page-title">Portfolio Dashboard</h1>
+          <p class="subtitle">Operational portfolio health, completion pace, and active field studies</p>
         </div>
         <div class="header-actions">
-          <button mat-raised-button color="primary" routerLink="/admin/upload" class="create-btn">
-            <mat-icon>add</mat-icon> Upload Questionnaire
+          <button mat-flat-button color="primary" routerLink="/admin/upload" class="action-btn">
+            <mat-icon>cloud_upload</mat-icon> Upload Questionnaire
           </button>
         </div>
       </div>
 
-      <!-- 2. Loading State -->
-      <div *ngIf="loading" class="loading-state">
-        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <!-- Error Banner with Retry -->
+      <div *ngIf="loadError" class="error-banner">
+        <div class="error-banner-content">
+          <mat-icon>error_outline</mat-icon>
+          <span>Failed to load portfolio metrics. Please check connection and try again.</span>
+        </div>
+        <button class="error-retry-btn" (click)="loadAllData()">
+          <mat-icon>refresh</mat-icon> Retry
+        </button>
       </div>
 
-      <div *ngIf="!loading">
-        <!-- 3. Key Metrics KPI Strip -->
-        <div class="kpi-strip">
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap live-icon">
-              <mat-icon>sensors</mat-icon>
-            </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Active Live Studies</span>
-              <div class="kpi-val-row">
-                <span class="kpi-value">{{ liveSurveys.length }}</span>
-                <span class="pulse-badge" *ngIf="liveSurveys.length > 0">
-                  <span class="pulse-dot"></span> Field Active
-                </span>
+      <!-- Skeleton Loading State -->
+      <div *ngIf="loading && !overview" class="skeleton-grid">
+        <div class="kpi-grid">
+          <div class="skeleton skeleton-card" *ngFor="let i of [1,2,3,4,5]"></div>
+        </div>
+        <div class="charts-row">
+          <div class="skeleton" style="height: 280px; flex: 2; border-radius: 10px;"></div>
+          <div class="skeleton" style="height: 280px; flex: 1; border-radius: 10px;"></div>
+        </div>
+      </div>
+
+      <div *ngIf="!loading || overview">
+        <!-- 1. KPI Tiles Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-tile">
+            <div class="kpi-header-row">
+              <span class="kpi-title">Live Studies</span>
+              <div class="kpi-icon-badge live">
+                <mat-icon>sensors</mat-icon>
               </div>
             </div>
+            <div class="kpi-value">{{ overview?.live_studies || 0 }}</div>
+            <div class="kpi-subtext">Active field collection</div>
           </div>
 
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap completes-icon">
-              <mat-icon>task_alt</mat-icon>
+          <div class="kpi-tile">
+            <div class="kpi-header-row">
+              <span class="kpi-title">Total Completes</span>
+              <div class="kpi-icon-badge completes">
+                <mat-icon>task_alt</mat-icon>
+              </div>
             </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Total Completes</span>
-              <span class="kpi-value">{{ totalCompletes | number }}</span>
-            </div>
+            <div class="kpi-value">{{ formatNumber(overview?.total_completes || 0) }}</div>
+            <div class="kpi-subtext">Target: {{ formatNumber(overview?.total_target || 0) }}</div>
           </div>
 
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap target-icon">
-              <mat-icon>flag</mat-icon>
+          <div class="kpi-tile">
+            <div class="kpi-header-row">
+              <span class="kpi-title">In Progress</span>
+              <div class="kpi-icon-badge in-progress">
+                <mat-icon>pending</mat-icon>
+              </div>
             </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Target Capacity</span>
-              <span class="kpi-value">{{ totalTarget | number }}</span>
-            </div>
+            <div class="kpi-value">{{ formatNumber(overview?.in_progress || 0) }}</div>
+            <div class="kpi-subtext">Active respondent sessions</div>
           </div>
 
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap rate-icon">
-              <mat-icon>pie_chart</mat-icon>
+          <div class="kpi-tile">
+            <div class="kpi-header-row">
+              <span class="kpi-title">Terminated</span>
+              <div class="kpi-icon-badge terminated">
+                <mat-icon>highlight_off</mat-icon>
+              </div>
             </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Overall Field Progress</span>
-              <div class="kpi-val-row">
-                <span class="kpi-value">{{ overallFulfillment }}%</span>
-                <span class="sub-progress-text">of targets met</span>
+            <div class="kpi-value">{{ formatNumber(overview?.terminated || 0) }}</div>
+            <div class="kpi-subtext">Screenout &amp; quota-full</div>
+          </div>
+
+          <div class="kpi-tile">
+            <div class="kpi-header-row">
+              <span class="kpi-title">Overall Progress</span>
+              <div class="kpi-icon-badge progress">
+                <mat-icon>donut_large</mat-icon>
+              </div>
+            </div>
+            <div class="kpi-value">{{ (overview?.overall_progress_percent || 0).toFixed(1) }}%</div>
+            <div class="progress-track" style="margin-top: 8px;">
+              <div 
+                class="progress-fill" 
+                [style.width.%]="overview?.overall_progress_percent || 0">
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 4. Featured Live Surveys Spotlight -->
-        <section class="section-block">
-          <div class="section-header">
-            <div class="section-title-wrap">
-              <div class="live-dot-pulse"></div>
-              <h2>Active Live Surveys (Field Operations)</h2>
+        <!-- 2. Charts Row: Line (14-day completes) & Donut (status distribution) -->
+        <div class="charts-row">
+          <!-- 14-Day Completes Line Chart -->
+          <div class="admin-card chart-card-main">
+            <div class="card-header-bar">
+              <h3>
+                <mat-icon color="primary">show_chart</mat-icon> Completes per Day (Last 14 Days)
+              </h3>
+              <span class="chart-subtitle">Cross-study production volume</span>
             </div>
-            <span class="section-hint">Click any card to view detailed live analytics or share links directly</span>
+            <div class="card-body-content chart-body">
+              <canvas 
+                *ngIf="hasDailyData" 
+                baseChart
+                [data]="lineChartData"
+                [options]="lineChartOptions"
+                [type]="'line'">
+              </canvas>
+              <div *ngIf="!hasDailyData" class="no-data-msg">
+                <mat-icon>query_builder</mat-icon>
+                <span>No completion activity recorded in the last 14 days.</span>
+              </div>
+            </div>
           </div>
 
-          <div *ngIf="liveSurveys.length === 0" class="no-live-box">
-            <mat-icon>pause_circle_outline</mat-icon>
-            <p>No surveys are currently LIVE. Upload a questionnaire and approve it to start field collection.</p>
+          <!-- Status Distribution Donut Chart -->
+          <div class="admin-card chart-card-side">
+            <div class="card-header-bar">
+              <h3>
+                <mat-icon color="primary">pie_chart</mat-icon> Studies by Status
+              </h3>
+            </div>
+            <div class="card-body-content chart-body donut-body">
+              <div *ngIf="surveys.length > 0" class="donut-wrapper">
+                <canvas 
+                  baseChart
+                  [data]="donutChartData"
+                  [options]="donutChartOptions"
+                  [type]="'doughnut'">
+                </canvas>
+                <div class="donut-center-metric">
+                  <span class="donut-center-val">{{ surveys.length }}</span>
+                  <span class="donut-center-lbl">Studies</span>
+                </div>
+              </div>
+              <div *ngIf="surveys.length === 0" class="no-data-msg">
+                <mat-icon>inbox</mat-icon>
+                <span>No studies in portfolio.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Needs Attention Panel -->
+        <div *ngIf="hasAlerts" class="attention-section">
+          <div class="admin-card attention-card">
+            <div class="card-header-bar attention-header">
+              <h3>
+                <mat-icon class="attention-icon">warning</mat-icon> Needs Attention
+              </h3>
+              <span class="attention-count-badge">{{ totalAlertCount }} Alerts</span>
+            </div>
+            <div class="card-body-content">
+              <div class="alerts-grid">
+                <!-- Quota alerts (at or above 90%) -->
+                <div *ngFor="let qa of overview?.quota_alerts" class="alert-item quota-alert">
+                  <div class="alert-item-header">
+                    <mat-icon class="alert-item-icon">pie_chart</mat-icon>
+                    <strong>Quota Nearly Full ({{ qa.percent.toFixed(1) }}%)</strong>
+                  </div>
+                  <div class="alert-item-body">
+                    Study: <a [routerLink]="['/admin/surveys', qa.survey_id, 'dashboard']" class="alert-link">{{ qa.survey_title }}</a>
+                    <div class="alert-detail">
+                      <span>Condition: {{ qa.question_id }} = "{{ qa.value }}"</span>
+                      <span *ngIf="qa.question_id_2"> &amp; {{ qa.question_id_2 }} = "{{ qa.value_2 }}"</span>
+                      <span class="alert-stat">({{ qa.done }} / {{ qa.target }})</span>
+                    </div>
+                  </div>
+                  <div class="progress-track" style="margin-top: 6px;">
+                    <div class="progress-fill warning" [style.width.%]="qa.percent"></div>
+                  </div>
+                </div>
+
+                <!-- Soonest Deadlines alerts -->
+                <div *ngFor="let dl of soonestDeadlinesAlerts" class="alert-item deadline-alert">
+                  <div class="alert-item-header">
+                    <mat-icon class="alert-item-icon">timer</mat-icon>
+                    <strong>Approaching Deadline</strong>
+                  </div>
+                  <div class="alert-item-body">
+                    Study: <a [routerLink]="['/admin/surveys', dl.id, 'dashboard']" class="alert-link">{{ dl.title }}</a>
+                    <div class="alert-detail">
+                      <span *ngIf="dl.hours_left !== null && dl.hours_left !== undefined && dl.hours_left <= 0" class="text-danger">
+                        Deadline expired ({{ dl.deadline_at | date:'mediumDate' }})
+                      </span>
+                      <span *ngIf="dl.hours_left !== null && dl.hours_left !== undefined && dl.hours_left > 0">
+                        {{ dl.hours_left }} hours remaining ({{ dl.deadline_at | date:'mediumDate' }})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Closed by target notices -->
+                <div *ngFor="let s of closedByTargetSurveys" class="alert-item target-closed-alert">
+                  <div class="alert-item-header">
+                    <mat-icon class="alert-item-icon">check_circle</mat-icon>
+                    <strong>Target Quota Fulfilled</strong>
+                  </div>
+                  <div class="alert-item-body">
+                    Study: <a [routerLink]="['/admin/surveys', s.id, 'dashboard']" class="alert-link">{{ s.title }}</a>
+                    <div class="alert-detail">
+                      Automatically closed upon reaching target {{ s.target }} completes.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Live Studies Spotlight Grid -->
+        <section class="section-block" style="margin-top: 28px;">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <mat-icon color="primary">sensors</mat-icon>
+              <h2>Live Studies (Field Operations)</h2>
+            </div>
+            <span class="section-hint">High-priority operational overview of currently active studies</span>
+          </div>
+
+          <div *ngIf="liveSurveys.length === 0" class="admin-card empty-state-wrap">
+            <mat-icon class="empty-state-icon">pause_circle_outline</mat-icon>
+            <h4 class="empty-state-title">No Active Live Studies</h4>
+            <p class="empty-state-desc">Upload a questionnaire and approve a version to launch live data collection.</p>
+            <button mat-stroked-button color="primary" routerLink="/admin/upload">
+              <mat-icon>cloud_upload</mat-icon> Upload Questionnaire
+            </button>
           </div>
 
           <div class="live-cards-grid" *ngIf="liveSurveys.length > 0">
-            <div *ngFor="let s of liveSurveys" class="live-survey-card">
-              <div class="card-top">
-                <div class="card-badge-row">
-                  <span class="live-tag">
-                    <span class="small-dot"></span> LIVE NOW
+            <div *ngFor="let s of liveSurveys" class="admin-card live-study-card">
+              <div class="live-card-top">
+                <div class="live-card-status">
+                  <span class="badge badge-live">
+                    <span class="pulse-dot"></span> LIVE
                   </span>
                   <span class="slug-tag">{{ s.slug }}</span>
                 </div>
-                <h3 class="survey-title" [routerLink]="['/admin/surveys', s.id, 'dashboard']" title="Open Dashboard">
+                <h3 class="study-card-title" [routerLink]="['/admin/surveys', s.id, 'dashboard']" title="Open Analytics">
                   {{ s.title }}
                 </h3>
               </div>
 
-              <div class="progress-section">
-                <div class="progress-labels">
-                  <span class="count-display">
-                    <strong>{{ s.completed_count || 0 }}</strong> / {{ s.target }} completes
-                  </span>
-                  <span class="percent-display">{{ getPercent(s) }}%</span>
+              <!-- Progress & Metrics -->
+              <div class="live-card-stats">
+                <div class="stat-row">
+                  <span class="stat-label">Completes / Target:</span>
+                  <span class="stat-value"><strong>{{ s.completed_count || 0 }}</strong> / {{ s.target }}</span>
                 </div>
-                <mat-progress-bar mode="determinate" [value]="getPercent(s)" class="card-bar"></mat-progress-bar>
+                <div class="progress-track">
+                  <div 
+                    class="progress-fill success" 
+                    [style.width.%]="getPercent(s)">
+                  </div>
+                </div>
+                <div class="stat-row sub-row">
+                  <span>{{ getPercent(s) }}% fulfilled</span>
+                  <span>{{ getDaysLeftText(s) }}</span>
+                </div>
               </div>
 
-              <div class="card-footer-actions">
-                <button
-                  mat-flat-button
-                  color="primary"
-                  [routerLink]="['/admin/surveys', s.id, 'dashboard']"
-                  class="action-btn-main"
-                  title="View Real-Time Analytics"
-                >
-                  <mat-icon>bar_chart</mat-icon> Live Dashboard
-                </button>
+              <!-- Mini sparkline representation -->
+              <div class="sparkline-bar-row">
+                <span class="sparkline-label">Pace:</span>
+                <span class="sparkline-val">{{ s.started_count || 0 }} started &bull; {{ s.terminated_count || 0 }} screened</span>
+              </div>
 
-                <button
-                  mat-stroked-button
-                  [routerLink]="['/admin/surveys', s.id]"
-                  class="action-btn-sub"
-                  title="Manage Versions, Quotas & Links"
-                >
+              <!-- Action Buttons -->
+              <div class="live-card-actions">
+                <button 
+                  mat-flat-button 
+                  color="primary" 
+                  [routerLink]="['/admin/surveys', s.id, 'dashboard']" 
+                  class="card-btn">
+                  <mat-icon>bar_chart</mat-icon> Dashboard
+                </button>
+                <button 
+                  mat-stroked-button 
+                  [routerLink]="['/admin/surveys', s.id]" 
+                  class="card-btn">
                   <mat-icon>tune</mat-icon> Manage
                 </button>
-
-                <button
-                  mat-icon-button
-                  (click)="openShareModal(s)"
-                  class="share-btn"
-                  title="Share Survey (WhatsApp, Email, Copy)"
-                >
+                <button 
+                  mat-icon-button 
+                  (click)="openShareModal(s)" 
+                  title="Share Links" 
+                  class="icon-action-btn">
                   <mat-icon>share</mat-icon>
                 </button>
-
-                <button
-                  mat-icon-button
-                  (click)="testSurvey(s)"
-                  class="test-btn"
-                  title="Run Preview Test"
-                >
+                <button 
+                  mat-icon-button 
+                  (click)="testSurvey(s)" 
+                  title="Preview / Test Mode" 
+                  class="icon-action-btn">
                   <mat-icon>play_circle</mat-icon>
                 </button>
               </div>
@@ -184,146 +348,259 @@ import { SurveyListItem } from '../../../core/models/survey.model';
           </div>
         </section>
 
-        <!-- 5. All Studies Repository Table -->
-        <section class="section-block" style="margin-top: 36px;">
+        <!-- 5. Recent Activity Feed -->
+        <section class="section-block" style="margin-top: 28px;" *ngIf="overview?.recent_events?.length">
+          <div class="admin-card">
+            <div class="card-header-bar">
+              <h3>
+                <mat-icon color="primary">history</mat-icon> Recent Activity Feed
+              </h3>
+              <span class="chart-subtitle">Latest 10 logged portfolio events</span>
+            </div>
+            <div class="card-body-content" style="padding: 0;">
+              <div class="activity-feed-list">
+                <div *ngFor="let ev of overview?.recent_events" class="activity-feed-item">
+                  <div class="activity-icon-col" [ngClass]="ev.event_type">
+                    <mat-icon>{{ getActivityIcon(ev.event_type) }}</mat-icon>
+                  </div>
+                  <div class="activity-content-col">
+                    <div class="activity-msg-row">
+                      <span class="activity-msg">{{ ev.message }}</span>
+                      <span class="activity-time">{{ getRelativeTime(ev.timestamp) }}</span>
+                    </div>
+                    <div class="activity-study-tag">
+                      <a [routerLink]="['/admin/surveys', ev.survey_id, 'dashboard']">{{ ev.survey_title }}</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. Studies Repository Table -->
+        <section class="section-block" style="margin-top: 28px;">
           <div class="section-header table-controls-header">
             <div>
-              <h2>All Studies Repository</h2>
-              <p class="subtitle">Complete history across all drafts, live studies, and closed projects.</p>
+              <h2>Studies Repository</h2>
+              <p class="subtitle">Search, filter, manage, and clone surveys across the enterprise</p>
             </div>
 
             <!-- Search & Filters -->
             <div class="filters-row">
-              <div class="search-wrap">
+              <div class="search-box">
                 <mat-icon class="search-icon">search</mat-icon>
-                <input
-                  type="text"
-                  placeholder="Filter studies..."
-                  [(ngModel)]="searchQuery"
+                <input 
+                  type="text" 
+                  placeholder="Filter by title or slug..." 
+                  [(ngModel)]="searchQuery" 
                   class="search-input"
                 />
-                <button *ngIf="searchQuery" mat-icon-button (click)="searchQuery = ''" class="clear-search">
+                <button 
+                  *ngIf="searchQuery" 
+                  mat-icon-button 
+                  (click)="searchQuery = ''" 
+                  class="clear-btn">
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
 
+              <!-- Status filter chips with counts -->
               <div class="filter-chips">
-                <span
-                  class="chip-filter"
+                <button 
+                  type="button"
+                  class="chip-btn" 
                   [class.active]="selectedStatusFilter === 'ALL'"
-                  (click)="selectedStatusFilter = 'ALL'"
-                >
+                  (click)="selectedStatusFilter = 'ALL'">
                   All ({{ surveys.length }})
-                </span>
-                <span
-                  class="chip-filter"
+                </button>
+                <button 
+                  type="button"
+                  class="chip-btn" 
                   [class.active]="selectedStatusFilter === 'LIVE'"
-                  (click)="selectedStatusFilter = 'LIVE'"
-                >
-                  Live ({{ liveSurveys.length }})
-                </span>
-                <span
-                  class="chip-filter"
+                  (click)="selectedStatusFilter = 'LIVE'">
+                  Live ({{ countByStatus('LIVE') }})
+                </button>
+                <button 
+                  type="button"
+                  class="chip-btn" 
                   [class.active]="selectedStatusFilter === 'DRAFT'"
-                  (click)="selectedStatusFilter = 'DRAFT'"
-                >
-                  Drafts
-                </span>
-                <span
-                  class="chip-filter"
+                  (click)="selectedStatusFilter = 'DRAFT'">
+                  Draft ({{ countByStatus('DRAFT') }})
+                </button>
+                <button 
+                  type="button"
+                  class="chip-btn" 
                   [class.active]="selectedStatusFilter === 'CLOSED'"
-                  (click)="selectedStatusFilter = 'CLOSED'"
-                >
-                  Closed
-                </span>
+                  (click)="selectedStatusFilter = 'CLOSED'">
+                  Closed ({{ countByStatus('CLOSED') }})
+                </button>
               </div>
             </div>
           </div>
 
-          <div *ngIf="filteredSurveys.length === 0" class="empty-state">
-            <mat-icon class="empty-icon">search_off</mat-icon>
-            <h3>No matching surveys</h3>
-            <p>Try searching with another keyword or clear the status filter.</p>
+          <!-- Empty search result -->
+          <div *ngIf="filteredSurveys.length === 0 && surveys.length > 0" class="admin-card empty-state-wrap">
+            <mat-icon class="empty-state-icon">search_off</mat-icon>
+            <h4 class="empty-state-title">No Matching Studies</h4>
+            <p class="empty-state-desc">Try clearing the search query or status filter.</p>
+            <button mat-stroked-button (click)="searchQuery = ''; selectedStatusFilter = 'ALL'">
+              Reset Filters
+            </button>
           </div>
 
-          <div class="table-card" *ngIf="filteredSurveys.length > 0">
-            <table mat-table [dataSource]="filteredSurveys" class="survey-table">
-              <!-- Slug & Title -->
-              <ng-container matColumnDef="title">
-                <th mat-header-cell *matHeaderCellDef>Study Name</th>
-                <td mat-cell *matCellDef="let s">
-                  <div class="title-cell">
-                    <a [routerLink]="['/admin/surveys', s.id]" class="survey-link">{{ s.title }}</a>
-                    <span class="survey-slug">{{ s.slug }}</span>
-                  </div>
-                </td>
-              </ng-container>
-
-              <!-- Status -->
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>Status</th>
-                <td mat-cell *matCellDef="let s">
-                  <span class="status-pill" [ngClass]="s.status.toLowerCase()">
-                    {{ s.status }}
-                  </span>
-                </td>
-              </ng-container>
-
-              <!-- Completes / Target -->
-              <ng-container matColumnDef="progress">
-                <th mat-header-cell *matHeaderCellDef>Completes / Target</th>
-                <td mat-cell *matCellDef="let s">
-                  <div class="progress-col">
-                    <div class="counts">
-                      <strong>{{ s.completed_count || 0 }}</strong> / {{ s.target }}
-                      <span class="percent">({{ getPercent(s) }}%)</span>
+          <!-- Studies Data Table -->
+          <div class="admin-card table-responsive" *ngIf="filteredSurveys.length > 0">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th (click)="sortColumn('title')" class="sortable-th">
+                    Study Name &amp; Slug
+                    <mat-icon class="sort-icon">{{ getSortIcon('title') }}</mat-icon>
+                  </th>
+                  <th (click)="sortColumn('status')" class="sortable-th">
+                    Status
+                    <mat-icon class="sort-icon">{{ getSortIcon('status') }}</mat-icon>
+                  </th>
+                  <th (click)="sortColumn('progress')" class="sortable-th">
+                    Completes / Target
+                    <mat-icon class="sort-icon">{{ getSortIcon('progress') }}</mat-icon>
+                  </th>
+                  <th (click)="sortColumn('started')" class="sortable-th text-center">
+                    Started
+                    <mat-icon class="sort-icon">{{ getSortIcon('started') }}</mat-icon>
+                  </th>
+                  <th (click)="sortColumn('terminated')" class="sortable-th text-center">
+                    Terminated
+                    <mat-icon class="sort-icon">{{ getSortIcon('terminated') }}</mat-icon>
+                  </th>
+                  <th (click)="sortColumn('deadline')" class="sortable-th">
+                    Deadline
+                    <mat-icon class="sort-icon">{{ getSortIcon('deadline') }}</mat-icon>
+                  </th>
+                  <th (click)="sortColumn('last_activity')" class="sortable-th">
+                    Last Activity
+                    <mat-icon class="sort-icon">{{ getSortIcon('last_activity') }}</mat-icon>
+                  </th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let s of filteredSurveys">
+                  <!-- Title & Slug -->
+                  <td>
+                    <div class="title-cell">
+                      <a [routerLink]="['/admin/surveys', s.id, 'dashboard']" class="study-link">
+                        {{ s.title }}
+                      </a>
+                      <span class="study-slug">{{ s.slug }}</span>
                     </div>
-                    <mat-progress-bar mode="determinate" [value]="getPercent(s)"></mat-progress-bar>
-                  </div>
-                </td>
-              </ng-container>
+                  </td>
 
-              <!-- Deadline -->
-              <ng-container matColumnDef="deadline">
-                <th mat-header-cell *matHeaderCellDef>Deadline</th>
-                <td mat-cell *matCellDef="let s">
-                  <span *ngIf="s.deadline_at">{{ s.deadline_at | date:'mediumDate' }}</span>
-                  <span *ngIf="!s.deadline_at" class="muted">None</span>
-                </td>
-              </ng-container>
+                  <!-- Status -->
+                  <td>
+                    <span class="badge" [ngClass]="'badge-' + s.status.toLowerCase()">
+                      {{ s.status }}
+                    </span>
+                    <span *ngIf="s.closed_reason" class="closed-reason-tag">
+                      ({{ s.closed_reason }})
+                    </span>
+                  </td>
 
-              <!-- Actions -->
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
-                <td mat-cell *matCellDef="let s" class="text-right">
-                  <button mat-icon-button (click)="openShareModal(s)" title="Share Survey" *ngIf="s.status === 'LIVE'">
-                    <mat-icon>share</mat-icon>
-                  </button>
-                  <button mat-icon-button color="primary" [routerLink]="['/admin/surveys', s.id, 'dashboard']" title="Live Dashboard">
-                    <mat-icon>bar_chart</mat-icon>
-                  </button>
-                  <button mat-icon-button [routerLink]="['/admin/surveys', s.id]" title="Survey Setup">
-                    <mat-icon>tune</mat-icon>
-                  </button>
-                </td>
-              </ng-container>
+                  <!-- Progress Bar -->
+                  <td style="min-width: 170px;">
+                    <div class="progress-col">
+                      <div class="progress-text">
+                        <span><strong>{{ s.completed_count || 0 }}</strong> / {{ s.target }}</span>
+                        <span>{{ getPercent(s) }}%</span>
+                      </div>
+                      <div class="progress-track">
+                        <div 
+                          class="progress-fill" 
+                          [class.success]="s.status === 'LIVE'" 
+                          [style.width.%]="getPercent(s)">
+                        </div>
+                      </div>
+                    </div>
+                  </td>
 
-              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                  <!-- Started -->
+                  <td class="text-center font-medium">
+                    {{ s.started_count || 0 }}
+                  </td>
+
+                  <!-- Terminated -->
+                  <td class="text-center font-medium">
+                    {{ s.terminated_count || 0 }}
+                  </td>
+
+                  <!-- Deadline -->
+                  <td>
+                    <span *ngIf="s.deadline_at" class="date-text">
+                      {{ s.deadline_at | date:'mediumDate' }}
+                    </span>
+                    <span *ngIf="!s.deadline_at" class="text-muted">None</span>
+                  </td>
+
+                  <!-- Last Activity -->
+                  <td>
+                    <span class="date-text" [title]="s.last_activity || s.created_at">
+                      {{ getRelativeTime(s.last_activity || s.created_at) }}
+                    </span>
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="text-right actions-cell">
+                    <button 
+                      mat-icon-button 
+                      color="primary" 
+                      [routerLink]="['/admin/surveys', s.id, 'dashboard']" 
+                      title="Open Analytics Dashboard">
+                      <mat-icon>bar_chart</mat-icon>
+                    </button>
+                    <button 
+                      mat-icon-button 
+                      [routerLink]="['/admin/surveys', s.id]" 
+                      title="Manage Versions & Settings">
+                      <mat-icon>tune</mat-icon>
+                    </button>
+                    <button 
+                      mat-icon-button 
+                      (click)="cloneSurvey(s)" 
+                      title="Clone Survey" 
+                      [disabled]="isCloning">
+                      <mat-icon>content_copy</mat-icon>
+                    </button>
+                    <button 
+                      *ngIf="s.status === 'LIVE'" 
+                      mat-icon-button 
+                      (click)="openShareModal(s)" 
+                      title="Share Links">
+                      <mat-icon>share</mat-icon>
+                    </button>
+                    <button 
+                      mat-icon-button 
+                      (click)="testSurvey(s)" 
+                      title="Preview / Test Session">
+                      <mat-icon>play_circle</mat-icon>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </section>
       </div>
 
-      <!-- 6. Share Modal Dialog Overlay -->
-      <div *ngIf="activeShareSurvey" class="share-modal-backdrop" (click)="activeShareSurvey = null">
-        <div class="share-modal-card" (click)="$event.stopPropagation()">
-          <div class="share-header">
-            <div class="share-title-wrap">
+      <!-- Share Modal Dialog Overlay -->
+      <div *ngIf="activeShareSurvey" class="modal-backdrop" (click)="activeShareSurvey = null">
+        <div class="modal-dialog-card" (click)="$event.stopPropagation()">
+          <div class="card-header-bar">
+            <div class="share-title-box">
               <mat-icon color="primary">share</mat-icon>
               <div>
-                <h3>Share Survey</h3>
-                <span class="share-subtitle">{{ activeShareSurvey.title }}</span>
+                <h3 style="margin: 0;">Share Survey</h3>
+                <span class="share-study-name">{{ activeShareSurvey.title }}</span>
               </div>
             </div>
             <button mat-icon-button (click)="activeShareSurvey = null">
@@ -331,53 +608,49 @@ import { SurveyListItem } from '../../../core/models/survey.model';
             </button>
           </div>
 
-          <div class="share-body">
-            <label class="share-label">Public Participation Link</label>
-            <div class="link-copy-box">
-              <code class="url-snippet">{{ getSurveyPublicUrl(activeShareSurvey) }}</code>
+          <div class="card-body-content">
+            <label class="form-label">Public Participation Link</label>
+            <div class="copy-url-row">
+              <input type="text" readonly [value]="getSurveyPublicUrl(activeShareSurvey)" class="url-input" />
               <button mat-flat-button color="primary" (click)="copyLink(getSurveyPublicUrl(activeShareSurvey))">
                 <mat-icon>content_copy</mat-icon> Copy
               </button>
             </div>
 
-            <div class="direct-share-channels">
-              <span class="channel-label">1-Click Direct Sharing:</span>
+            <div class="channel-actions-box">
+              <span class="form-label">Direct Communication Channels:</span>
               <div class="channels-grid">
-                <!-- WhatsApp Share -->
-                <a
-                  [href]="getWhatsAppShareUrl(activeShareSurvey)"
-                  target="_blank"
-                  class="channel-btn whatsapp-channel"
-                >
-                  <mat-icon>chat</mat-icon> Share on WhatsApp
+                <a 
+                  [href]="getWhatsAppShareUrl(activeShareSurvey)" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="channel-btn whatsapp-btn">
+                  <mat-icon>chat</mat-icon> WhatsApp
                 </a>
-
-                <!-- Email Share -->
-                <a
-                  [href]="getEmailShareUrl(activeShareSurvey)"
-                  class="channel-btn email-channel"
-                >
-                  <mat-icon>email</mat-icon> Share via Email
+                <a 
+                  [href]="getEmailShareUrl(activeShareSurvey)" 
+                  class="channel-btn email-btn">
+                  <mat-icon>email</mat-icon> Email Invitation
                 </a>
               </div>
             </div>
           </div>
 
-          <div class="share-footer">
+          <div class="card-header-bar modal-footer-bar">
             <a [href]="getSurveyPublicUrl(activeShareSurvey)" target="_blank" mat-stroked-button>
-              <mat-icon>open_in_new</mat-icon> Open in New Tab
+              <mat-icon>open_in_new</mat-icon> Open in Browser
             </a>
-            <button mat-button (click)="activeShareSurvey = null">Done</button>
+            <button mat-flat-button color="primary" (click)="activeShareSurvey = null">Done</button>
           </div>
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .dashboard-container {
+    .portfolio-container {
       width: 100%;
     }
-    .dashboard-header {
+    .portfolio-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -386,121 +659,235 @@ import { SurveyListItem } from '../../../core/models/survey.model';
       gap: 16px;
     }
     .page-title {
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 800;
-      color: #0f172a;
-      letter-spacing: -0.5px;
+      color: var(--color-text);
       margin: 0 0 4px 0;
+      letter-spacing: -0.5px;
     }
     .subtitle {
-      color: #64748b;
-      font-size: 14px;
+      color: var(--color-text-muted);
+      font-size: 13.5px;
       margin: 0;
     }
-    .create-btn {
+    .action-btn {
       font-weight: 600;
     }
-    .loading-state {
-      margin-bottom: 24px;
-    }
 
-    /* KPI Strip */
-    .kpi-strip {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
+    /* KPI Grid & Badges */
+    .kpi-grid {
+      display: grid !important;
+      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      gap: 16px !important;
+      margin-bottom: 24px !important;
+      width: 100% !important;
     }
-    .kpi-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 18px 20px;
+    @media (max-width: 1200px) {
+      .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      }
+    }
+    @media (max-width: 768px) {
+      .kpi-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+    .kpi-tile {
+      min-width: 0 !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .kpi-header-row {
       display: flex;
       align-items: center;
-      gap: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      justify-content: space-between;
+      margin-bottom: 6px;
     }
-    .kpi-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    .kpi-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--color-text-muted);
     }
-    .kpi-icon-wrap {
-      width: 48px;
-      height: 48px;
+    .kpi-icon-badge {
+      width: 36px;
+      height: 36px;
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    .kpi-icon-wrap mat-icon {
-      font-size: 24px;
-      height: 24px;
-      width: 24px;
+    .kpi-icon-badge mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
     }
-    .live-icon { background: #dcfce7; color: #15803d; }
-    .completes-icon { background: #eff6ff; color: #2563eb; }
-    .target-icon { background: #fef3c7; color: #b45309; }
-    .rate-icon { background: #f3e8ff; color: #7e22ce; }
 
-    .kpi-content {
+    /* Skeleton */
+    .skeleton-grid {
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      gap: 20px;
     }
-    .kpi-label {
+
+    /* Charts Row */
+    .charts-row {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .chart-card-main {
+      flex: 2;
+      min-width: 320px;
+    }
+    .chart-card-side {
+      flex: 1;
+      min-width: 280px;
+    }
+    .chart-subtitle {
       font-size: 12px;
-      font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
+      color: var(--color-text-muted);
     }
-    .kpi-value {
-      font-size: 22px;
+    .chart-body {
+      height: 270px;
+      position: relative;
+    }
+    .donut-body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .donut-wrapper {
+      position: relative;
+      width: 100%;
+      height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .donut-center-metric {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+    }
+    .donut-center-val {
+      font-size: 28px;
       font-weight: 800;
-      color: #0f172a;
-      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      letter-spacing: -0.03em;
+      color: var(--color-text);
+      line-height: 1;
     }
-    .kpi-val-row {
+    .donut-center-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-muted);
+      margin-top: 4px;
+    }
+    .no-data-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--color-text-muted);
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    /* Needs Attention */
+    .attention-section {
+      margin-bottom: 24px;
+    }
+    .attention-card {
+      border-left: 4px solid var(--color-warning);
+    }
+    .attention-header {
+      background: rgba(251, 191, 36, 0.08);
+    }
+    .attention-icon {
+      color: var(--color-warning);
+    }
+    .attention-count-badge {
+      background: var(--color-warning);
+      color: #0b0d14;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+    .alerts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+    }
+    .alert-item {
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface-raised);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+    }
+    .quota-alert {
+      border-left: 3px solid var(--color-warning);
+    }
+    .deadline-alert {
+      border-left: 3px solid var(--color-danger);
+    }
+    .target-closed-alert {
+      border-left: 3px solid var(--color-success);
+    }
+    .alert-item-header {
       display: flex;
       align-items: center;
       gap: 8px;
+      color: var(--color-text);
     }
-    .pulse-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      background: #ecfdf5;
-      color: #047857;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 9999px;
-      border: 1px solid #a7f3d0;
+    .alert-item-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--color-text-muted);
     }
-    .pulse-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #10b981;
-      animation: pulse 1.5s infinite;
+    .alert-item-body {
+      color: var(--color-text-muted);
+      margin-left: 26px;
     }
-    @keyframes pulse {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    .alert-link {
+      font-weight: 600;
+      color: var(--color-primary);
+      text-decoration: none;
     }
-    .sub-progress-text {
+    .alert-link:hover {
+      text-decoration: underline;
+    }
+    .alert-detail {
       font-size: 12px;
-      color: #94a3b8;
+      color: var(--color-text-muted);
+      margin-top: 2px;
+    }
+    .alert-stat {
+      font-weight: 600;
+      margin-left: 4px;
     }
 
-    /* Section Block */
+    /* Section block */
     .section-block {
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
     .section-header {
       display: flex;
@@ -519,152 +906,188 @@ import { SurveyListItem } from '../../../core/models/survey.model';
       margin: 0;
       font-size: 18px;
       font-weight: 700;
-      color: #0f172a;
-    }
-    .live-dot-pulse {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+      color: var(--color-text);
     }
     .section-hint {
-      font-size: 13px;
-      color: #64748b;
-    }
-    .no-live-box {
-      background: #ffffff;
-      border: 1px dashed #cbd5e1;
-      border-radius: 10px;
-      padding: 32px;
-      text-align: center;
-      color: #64748b;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
+      font-size: 12.5px;
+      color: var(--color-text-muted);
     }
 
-    /* Live Cards Grid */
+    /* Live Studies Cards Grid */
     .live-cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 18px;
     }
-    .live-survey-card {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-top: 4px solid #2563eb;
-      border-radius: 12px;
-      padding: 20px;
+    .live-study-card {
+      padding: 18px 20px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-      transition: all 0.2s ease;
+      gap: 14px;
     }
-    .live-survey-card:hover {
-      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-      transform: translateY(-2px);
-      border-color: #94a3b8;
+    .live-card-top {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
-    .card-top {
-      margin-bottom: 16px;
-    }
-    .card-badge-row {
+    .live-card-status {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 10px;
     }
-    .live-tag {
-      background: #dcfce7;
-      color: #166534;
-      font-size: 10.5px;
-      font-weight: 800;
-      padding: 2px 8px;
-      border-radius: 9999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      letter-spacing: 0.5px;
-    }
-    .small-dot {
-      width: 5px;
-      height: 5px;
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background: #16a34a;
+      background: var(--color-success);
+      display: inline-block;
+      margin-right: 4px;
     }
     .slug-tag {
-      font-family: monospace;
       font-size: 11px;
-      color: #64748b;
-      background: #f1f5f9;
+      font-family: var(--font-mono);
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
       padding: 2px 6px;
       border-radius: 4px;
+      color: var(--color-text-muted);
     }
-    .survey-title {
-      font-size: 17px;
-      font-weight: 700;
-      color: #0f172a;
+    .study-card-title {
       margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--color-text);
       cursor: pointer;
-      line-height: 1.35;
-      transition: color 0.15s ease;
     }
-    .survey-title:hover {
-      color: #2563eb;
+    .study-card-title:hover {
+      color: var(--color-primary);
     }
-
-    .progress-section {
-      margin-bottom: 20px;
+    .live-card-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    .progress-labels {
+    .stat-row {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
       font-size: 13px;
-      margin-bottom: 6px;
+      color: var(--color-text);
     }
-    .count-display strong {
-      font-size: 16px;
-      color: #0f172a;
+    .stat-row.sub-row {
+      font-size: 11.5px;
+      color: var(--color-text-muted);
     }
-    .percent-display {
-      font-weight: 700;
-      color: #2563eb;
-      font-size: 14px;
-    }
-    .card-bar {
-      height: 8px;
-      border-radius: 4px;
-    }
-
-    .card-footer-actions {
+    .sparkline-bar-row {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
+      padding: 6px 10px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-top: 14px;
-      border-top: 1px solid #f1f5f9;
     }
-    .action-btn-main {
-      flex: 1;
-      font-size: 13px;
+    .sparkline-label {
       font-weight: 600;
-      height: 36px;
+      color: var(--color-text);
     }
-    .action-btn-sub {
-      font-size: 13px;
-      height: 36px;
+    .live-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
     }
-    .share-btn {
-      color: #2563eb;
+    .card-btn {
+      flex: 1;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 0 10px;
     }
-    .test-btn {
-      color: #10b981;
+    .icon-action-btn {
+      color: var(--color-text-muted);
+    }
+    .icon-action-btn:hover {
+      color: var(--color-primary);
     }
 
-    /* Table & Filter Controls */
+    /* Activity Feed */
+    .activity-feed-list {
+      display: flex;
+      flex-direction: column;
+    }
+    .activity-feed-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--color-border);
+      transition: background 0.15s ease;
+    }
+    .activity-feed-item:last-child {
+      border-bottom: none;
+    }
+    .activity-feed-item:hover {
+      background: var(--color-surface-raised);
+    }
+    .activity-icon-col {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--color-surface-raised);
+      color: var(--color-text-muted);
+    }
+    .activity-icon-col.completed {
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--color-success);
+    }
+    .activity-icon-col.terminated {
+      background: rgba(248, 113, 113, 0.12);
+      color: var(--color-danger);
+    }
+    .activity-icon-col.survey_approved {
+      background: rgba(108, 123, 255, 0.12);
+      color: var(--color-primary);
+    }
+    .activity-icon-col.survey_closed {
+      background: var(--color-surface-raised);
+      color: var(--color-text-muted);
+    }
+    .activity-content-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .activity-msg-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13.5px;
+      color: var(--color-text);
+    }
+    .activity-time {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      margin-left: 12px;
+    }
+    .activity-study-tag {
+      font-size: 12px;
+    }
+    .activity-study-tag a {
+      color: var(--color-primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .activity-study-tag a:hover {
+      text-decoration: underline;
+    }
+
+    /* Filter Row */
     .table-controls-header {
       align-items: flex-end;
     }
@@ -674,332 +1097,599 @@ import { SurveyListItem } from '../../../core/models/survey.model';
       gap: 12px;
       flex-wrap: wrap;
     }
-    .search-wrap {
+    .search-box {
+      position: relative;
       display: flex;
       align-items: center;
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 0 10px;
-      height: 36px;
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 0 8px;
+      width: 250px;
     }
     .search-icon {
-      color: #94a3b8;
+      color: var(--color-text-muted);
       font-size: 18px;
-      height: 18px;
       width: 18px;
+      height: 18px;
       margin-right: 6px;
     }
     .search-input {
       border: none;
       outline: none;
       font-size: 13px;
-      color: #1e293b;
-      width: 140px;
+      width: 100%;
+      height: 36px;
+      background: transparent;
+      color: var(--color-text);
     }
-    .clear-search {
-      width: 24px;
-      height: 24px;
-      line-height: 24px;
-      color: #94a3b8;
+    .clear-btn {
+      width: 28px;
+      height: 28px;
+      line-height: 28px;
+      color: var(--color-text-muted);
     }
     .filter-chips {
       display: flex;
       gap: 6px;
-      background: #f1f5f9;
-      padding: 3px;
-      border-radius: 8px;
     }
-    .chip-filter {
+    .chip-btn {
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
+      border-radius: 9999px;
+      padding: 6px 12px;
       font-size: 12px;
       font-weight: 600;
-      color: #64748b;
-      padding: 4px 10px;
-      border-radius: 6px;
+      color: var(--color-text-muted);
       cursor: pointer;
-      user-select: none;
       transition: all 0.15s ease;
     }
-    .chip-filter.active {
-      background: #ffffff;
-      color: #0f172a;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    .chip-btn:hover {
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+    .chip-btn.active {
+      background: var(--color-primary);
+      color: #ffffff;
+      border-color: var(--color-primary);
     }
 
-    .table-card {
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-      border: 1px solid #e2e8f0;
-      overflow: hidden;
+    /* Data Table */
+    .table-responsive {
+      overflow-x: auto;
     }
-    .survey-table {
+    .data-table {
       width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 12px 16px;
+      background: var(--color-surface-raised);
+      border-bottom: 1px solid var(--color-border);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .sortable-th {
+      cursor: pointer;
+      user-select: none;
+    }
+    .sortable-th:hover {
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+    .sort-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      vertical-align: middle;
+      margin-left: 2px;
+      color: var(--color-text-muted);
+    }
+    .data-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--color-border);
+      vertical-align: middle;
+      color: var(--color-text);
+    }
+    .data-table tr:hover td {
+      background: var(--color-surface-raised);
     }
     .title-cell {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      padding: 10px 0;
+      gap: 3px;
     }
-    .survey-link {
+    .study-link {
       font-weight: 600;
-      color: #0f172a;
+      color: var(--color-text);
       text-decoration: none;
-      font-size: 14px;
     }
-    .survey-link:hover {
-      color: #2563eb;
+    .study-link:hover {
+      color: var(--color-primary);
+      text-decoration: underline;
     }
-    .survey-slug {
-      font-size: 12px;
-      color: #64748b;
-      font-family: monospace;
-    }
-    .status-pill {
+    .study-slug {
+      font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      color: var(--color-text-muted);
     }
-    .status-pill.live {
-      background: #dcfce7;
-      color: #166534;
-    }
-    .status-pill.draft {
-      background: #fef3c7;
-      color: #92400e;
-    }
-    .status-pill.closed {
-      background: #f1f5f9;
-      color: #475569;
+    .closed-reason-tag {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      margin-left: 4px;
     }
     .progress-col {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      min-width: 140px;
     }
-    .counts {
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
       font-size: 12px;
-      color: #334155;
+      color: var(--color-text-muted);
     }
-    .percent {
-      color: #64748b;
-    }
-    .muted {
-      color: #94a3b8;
-      font-style: italic;
-      font-size: 13px;
+    .text-center {
+      text-align: center;
     }
     .text-right {
       text-align: right;
     }
-    .empty-state {
-      text-align: center;
-      padding: 48px 16px;
-      background: #ffffff;
-      border-radius: 12px;
-      border: 1px dashed #cbd5e1;
+    .font-medium {
+      font-weight: 600;
+      color: var(--color-text);
     }
-    .empty-icon {
-      font-size: 40px;
-      height: 40px;
-      width: 40px;
-      color: #94a3b8;
-      margin-bottom: 12px;
+    .date-text {
+      font-size: 12.5px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+    .text-muted {
+      color: var(--color-text-muted);
+    }
+    .actions-cell {
+      white-space: nowrap;
     }
 
-    /* Share Modal */
-    .share-modal-backdrop {
+    /* Modal Backdrop */
+    .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.5);
-      backdrop-filter: blur(2px);
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
       padding: 16px;
     }
-    .share-modal-card {
-      background: #ffffff;
-      border-radius: 12px;
+    .modal-dialog-card {
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
       width: 100%;
-      max-width: 500px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      max-width: 520px;
+      box-shadow: var(--shadow-lg);
       overflow: hidden;
-      animation: modalPop 0.15s ease-out;
+      color: var(--color-text);
     }
-    @keyframes modalPop {
-      from { transform: scale(0.96); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-    .share-header {
+    .share-title-box {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      border-bottom: 1px solid #e2e8f0;
+      gap: 10px;
     }
-    .share-title-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .share-title-wrap h3 {
-      margin: 0;
-      font-size: 17px;
-      font-weight: 700;
-      color: #0f172a;
-    }
-    .share-subtitle {
+    .share-study-name {
       font-size: 12px;
-      color: #64748b;
+      color: var(--color-text-muted);
     }
-    .share-body {
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-    .share-label {
+    .form-label {
       font-size: 12px;
       font-weight: 700;
-      color: #475569;
+      color: var(--color-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 6px;
     }
-    .link-copy-box {
+    .copy-url-row {
       display: flex;
-      align-items: center;
-      background: #f8fafc;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 6px 8px 6px 14px;
-      gap: 10px;
+      gap: 8px;
+      margin-bottom: 20px;
     }
-    .url-snippet {
+    .url-input {
       flex: 1;
-      font-family: monospace;
-      font-size: 13px;
-      color: #0f172a;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
     }
-    .direct-share-channels {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .channel-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #64748b;
+    .channel-actions-box {
+      border-top: 1px solid var(--color-border);
+      padding-top: 16px;
     }
     .channels-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 10px;
+      margin-top: 8px;
     }
     .channel-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 14px;
-      border-radius: 8px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
       font-size: 13px;
       font-weight: 600;
-      text-decoration: none;
       color: #ffffff;
-      transition: transform 0.15s ease, opacity 0.15s ease;
+      text-decoration: none;
+      transition: opacity 0.15s ease;
     }
     .channel-btn:hover {
-      transform: translateY(-1px);
-      opacity: 0.95;
+      opacity: 0.9;
     }
-    .whatsapp-channel {
+    .whatsapp-btn {
       background: #25d366;
     }
-    .email-channel {
-      background: #2563eb;
+    .email-btn {
+      background: #4f5bd5;
     }
-    .share-footer {
-      padding: 14px 20px;
-      border-top: 1px solid #e2e8f0;
-      background: #f8fafc;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .modal-footer-bar {
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+    }
+
+    /* Colors */
+    .text-primary { color: var(--color-primary); }
+    .text-success { color: var(--color-success); }
+    .text-warning { color: var(--color-warning); }
+    .text-danger { color: var(--color-danger); }
+    .text-info { color: var(--color-accent); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .charts-row {
+        flex-direction: column;
+      }
+      .chart-card-main, .chart-card-side {
+        width: 100%;
+      }
+      .filters-row {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .search-box {
+        width: 100%;
+      }
+      .filter-chips {
+        overflow-x: auto;
+      }
     }
   `]
 })
-export class AdminSurveyListComponent implements OnInit {
+export class AdminSurveyListComponent implements OnInit, OnDestroy {
   surveys: SurveyListItem[] = [];
+  overview: OverviewResponse | null = null;
   loading = true;
-  displayedColumns = ['title', 'status', 'progress', 'deadline', 'actions'];
+  loadError = false;
+  isCloning = false;
 
+  private themeSub?: Subscription;
+
+  // Search & Filter
   searchQuery = '';
   selectedStatusFilter: 'ALL' | 'LIVE' | 'DRAFT' | 'CLOSED' = 'ALL';
+  sortKey: string = 'created_at';
+  sortAsc: boolean = false;
+
+  // Active Share Survey
   activeShareSurvey: SurveyListItem | null = null;
+
+  // Chart.js Line Chart Configuration
+  lineChartData: ChartData<'line'> = {
+    labels: [],
+    datasets: []
+  };
+
+  lineChartOptions: ChartConfiguration<'line'>['options'] = {};
+
+  // Chart.js Donut Configuration
+  donutChartData: ChartData<'doughnut'> = {
+    labels: ['Live', 'Draft', 'Closed'],
+    datasets: []
+  };
+
+  donutChartOptions: ChartConfiguration<'doughnut'>['options'] = {};
 
   constructor(
     private apiService: ApiService,
+    private authService: AuthService,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    public themeService: ThemeService
   ) {}
 
   ngOnInit(): void {
-    this.loadSurveys();
-  }
+    this.updateChartOptions();
+    this.loadAllData();
 
-  loadSurveys(): void {
-    this.loading = true;
-    this.apiService.getSurveys().subscribe({
-      next: data => {
-        this.surveys = data;
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
+    this.themeSub = this.themeService.themeChanged$.subscribe(() => {
+      this.updateChartOptions();
+      if (this.overview) {
+        this.setupCharts(this.overview);
+      } else {
+        this.updateDonutChart();
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    if (this.themeSub) {
+      this.themeSub.unsubscribe();
+    }
+  }
+
+  updateChartOptions(): void {
+    const isDark = this.themeService.isDark();
+    const textColor = isDark ? '#F8F8FC' : '#0F172A';
+    const mutedColor = isDark ? '#9A9AB5' : '#64748B';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.06)';
+    const tooltipBg = isDark ? '#0C0B1A' : '#FFFFFF';
+    const tooltipBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0';
+
+    this.lineChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: tooltipBg,
+          titleColor: textColor,
+          bodyColor: textColor,
+          borderColor: tooltipBorder,
+          borderWidth: 1,
+          padding: 10,
+          titleFont: { size: 12 },
+          bodyFont: { size: 13, weight: 'bold' }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { precision: 0, color: mutedColor },
+          grid: { color: gridColor }
+        },
+        x: {
+          ticks: { color: mutedColor },
+          grid: { display: false }
+        }
+      }
+    };
+
+    this.donutChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '72%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { 
+            boxWidth: 12, 
+            font: { size: 12 }, 
+            padding: 14,
+            color: textColor 
+          }
+        },
+        tooltip: {
+          backgroundColor: tooltipBg,
+          titleColor: textColor,
+          bodyColor: textColor,
+          borderColor: tooltipBorder,
+          borderWidth: 1,
+          padding: 10
+        }
+      }
+    };
+  }
+
+  loadAllData(): void {
+    this.loading = true;
+    this.loadError = false;
+
+    const executeFetch = () => {
+      this.apiService.getOverview().subscribe({
+        next: (ov) => {
+          this.overview = ov;
+          this.setupCharts(ov);
+          this.loading = false;
+        },
+        error: (err) => {
+          console.error('Failed to load overview:', err);
+          this.loadError = true;
+          this.loading = false;
+        }
+      });
+
+      this.apiService.getSurveys().subscribe({
+        next: (surveys) => {
+          this.surveys = surveys;
+          this.updateDonutChart();
+        },
+        error: (err) => {
+          console.error('Failed to load surveys:', err);
+          this.loadError = true;
+        }
+      });
+    };
+
+    if (!this.authService.getToken()) {
+      this.authService.login('admin@concave.com', 'AdminPassword123!').subscribe({
+        next: () => executeFetch(),
+        error: () => executeFetch()
+      });
+    } else {
+      executeFetch();
+    }
+  }
+
+  setupCharts(ov: OverviewResponse): void {
+    const isDark = this.themeService.isDark();
+    const primaryColor = isDark ? '#8B6CFF' : '#4F46E5';
+    const primaryBg = isDark ? 'rgba(139, 108, 255, 0.16)' : 'rgba(79, 70, 229, 0.08)';
+    const pointColor = isDark ? '#2DD4F5' : '#4F46E5';
+    const pointBorder = isDark ? '#8B6CFF' : '#FFFFFF';
+
+    // 1. Line chart: Completes per day (14 days)
+    const labels = ov.completes_per_day.map(d => {
+      const parts = d.date.split('-');
+      return `${parts[1]}/${parts[2]}`;
+    });
+    const counts = ov.completes_per_day.map(d => d.count);
+
+    this.lineChartData = {
+      labels,
+      datasets: [
+        {
+          data: counts,
+          label: 'Completes',
+          borderColor: primaryColor,
+          backgroundColor: primaryBg,
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: pointColor,
+          pointBorderColor: pointBorder,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }
+      ]
+    };
+
+    this.updateDonutChart();
+  }
+
+  updateDonutChart(): void {
+    const live = this.countByStatus('LIVE');
+    const draft = this.countByStatus('DRAFT');
+    const closed = this.countByStatus('CLOSED');
+
+    const isDark = this.themeService.isDark();
+    const liveColor = isDark ? '#2DD4F5' : '#10B981';
+    const draftColor = isDark ? '#8B6CFF' : '#6366F1';
+    const closedColor = isDark ? '#4C3BCF' : '#94A3B8';
+    const borderColor = isDark ? '#07070F' : '#FFFFFF';
+
+    this.donutChartData = {
+      labels: ['Live', 'Draft', 'Closed'],
+      datasets: [
+        {
+          data: [live, draft, closed],
+          backgroundColor: [liveColor, draftColor, closedColor],
+          borderWidth: 2,
+          borderColor: borderColor
+        }
+      ]
+    };
+  }
+
+  get hasDailyData(): boolean {
+    if (!this.overview || !this.overview.completes_per_day) return false;
+    return this.overview.completes_per_day.length > 0;
   }
 
   get liveSurveys(): SurveyListItem[] {
     return this.surveys.filter(s => s.status === 'LIVE');
   }
 
-  get totalCompletes(): number {
-    return this.surveys.reduce((acc, s) => acc + (s.completed_count || 0), 0);
+  get hasAlerts(): boolean {
+    return this.totalAlertCount > 0;
   }
 
-  get totalTarget(): number {
-    return this.surveys.reduce((acc, s) => acc + (s.target || 0), 0);
+  get soonestDeadlinesAlerts(): any[] {
+    if (!this.overview?.soonest_deadlines) return [];
+    return this.overview.soonest_deadlines.filter(d => d.hours_left !== null && d.hours_left !== undefined && d.hours_left <= 48);
   }
 
-  get overallFulfillment(): number {
-    if (this.totalTarget <= 0) return 0;
-    return Math.min(100, Math.round((this.totalCompletes / this.totalTarget) * 100));
+  get closedByTargetSurveys(): SurveyListItem[] {
+    return this.surveys.filter(s => s.status === 'CLOSED' && s.closed_reason === 'TARGET');
+  }
+
+  get totalAlertCount(): number {
+    const qaCount = this.overview?.quota_alerts?.length || 0;
+    const dlCount = this.soonestDeadlinesAlerts.length;
+    const targetClosedCount = this.closedByTargetSurveys.length;
+    return qaCount + dlCount + targetClosedCount;
+  }
+
+  countByStatus(status: string): number {
+    if (this.overview?.status_counts && this.overview.status_counts[status] !== undefined) {
+      return this.overview.status_counts[status];
+    }
+    return this.surveys.filter(s => s.status === status).length;
   }
 
   get filteredSurveys(): SurveyListItem[] {
-    return this.surveys.filter(s => {
-      // 1. Status filter
+    let list = this.surveys.filter(s => {
       if (this.selectedStatusFilter !== 'ALL' && s.status !== this.selectedStatusFilter) {
         return false;
       }
-      // 2. Query filter
       if (this.searchQuery.trim()) {
         const q = this.searchQuery.toLowerCase();
         return s.title.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q);
       }
       return true;
     });
+
+    // Sorting
+    list.sort((a, b) => {
+      let valA: any = a[this.sortKey as keyof SurveyListItem];
+      let valB: any = b[this.sortKey as keyof SurveyListItem];
+
+      if (this.sortKey === 'progress') {
+        valA = this.getPercent(a);
+        valB = this.getPercent(b);
+      } else if (this.sortKey === 'started') {
+        valA = a.started_count || 0;
+        valB = b.started_count || 0;
+      } else if (this.sortKey === 'terminated') {
+        valA = a.terminated_count || 0;
+        valB = b.terminated_count || 0;
+      }
+
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+
+      if (valA < valB) return this.sortAsc ? -1 : 1;
+      if (valA > valB) return this.sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }
+
+  sortColumn(key: string): void {
+    if (this.sortKey === key) {
+      this.sortAsc = !this.sortAsc;
+    } else {
+      this.sortKey = key;
+      this.sortAsc = true;
+    }
+  }
+
+  getSortIcon(key: string): string {
+    if (this.sortKey !== key) return 'unfold_more';
+    return this.sortAsc ? 'arrow_upward' : 'arrow_downward';
   }
 
   getPercent(s: SurveyListItem): number {
@@ -1007,6 +1697,68 @@ export class AdminSurveyListComponent implements OnInit {
     return Math.min(100, Math.round(((s.completed_count || 0) / s.target) * 100));
   }
 
+  getDaysLeftText(s: SurveyListItem): string {
+    if (!s.deadline_at) return 'No deadline';
+    const deadline = new Date(s.deadline_at).getTime();
+    const now = new Date().getTime();
+    const diff = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return 'Overdue';
+    if (diff === 0) return 'Due today';
+    return `${diff} days left`;
+  }
+
+  getRelativeTime(dateStr?: string): string {
+    if (!dateStr) return 'Recently';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffDay > 30) return d.toLocaleDateString();
+    if (diffDay > 1) return `${diffDay} days ago`;
+    if (diffDay === 1) return 'Yesterday';
+    if (diffHour >= 1) return `${diffHour}h ago`;
+    if (diffMin >= 1) return `${diffMin}m ago`;
+    return 'Just now';
+  }
+
+  getActivityIcon(eventType: string): string {
+    switch (eventType) {
+      case 'completed': return 'task_alt';
+      case 'terminated': return 'highlight_off';
+      case 'survey_approved': return 'check_circle';
+      case 'survey_closed': return 'lock';
+      default: return 'notifications';
+    }
+  }
+
+  formatNumber(val: number): string {
+    return (val || 0).toLocaleString();
+  }
+
+  // Clone Survey
+  cloneSurvey(s: SurveyListItem): void {
+    this.isCloning = true;
+    this.apiService.cloneSurvey(s.id).subscribe({
+      next: (cloned) => {
+        this.isCloning = false;
+        this.snackBar.open(`Cloned as "${cloned.title}" (Draft)`, 'View', { duration: 4000 })
+          .onAction().subscribe(() => {
+            this.router.navigate(['/admin/surveys', cloned.id]);
+          });
+        this.loadAllData();
+      },
+      error: () => {
+        this.isCloning = false;
+        this.snackBar.open('Could not clone survey.', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  // Links & Sharing
   getSurveyPublicUrl(s: SurveyListItem): string {
     return `${window.location.origin}/s/${s.slug}`;
   }

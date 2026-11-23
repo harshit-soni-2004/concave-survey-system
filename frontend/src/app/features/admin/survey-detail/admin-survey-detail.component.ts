@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -55,6 +55,11 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
           </div>
 
           <div class="primary-actions">
+            <!-- Clone Survey Button -->
+            <button mat-stroked-button (click)="onCloneSurvey()" [disabled]="cloningSurvey">
+              <mat-icon>content_copy</mat-icon> {{ cloningSurvey ? 'Cloning...' : 'Clone Survey' }}
+            </button>
+
             <!-- Preview / Test Button (Available for all roles) -->
             <button mat-stroked-button color="accent" (click)="onPreviewTest()">
               <mat-icon>bug_report</mat-icon> Preview / Test
@@ -151,11 +156,26 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
               </button>
 
               <div *ngIf="showRevisionEditor" class="revision-box">
+                <div class="rev-file-picker-row">
+                  <input
+                    #revFileInput
+                    type="file"
+                    (change)="onRevisionFileSelected($event)"
+                    accept=".txt,.docx,.doc,.xml,.text"
+                    style="display: none"
+                  />
+                  <button mat-stroked-button color="primary" type="button" (click)="revFileInput.click()">
+                    <mat-icon>folder_open</mat-icon> Choose File from System
+                  </button>
+                  <span *ngIf="revisionFileName" class="rev-file-tag">
+                    <mat-icon>description</mat-icon> {{ revisionFileName }}
+                  </span>
+                </div>
                 <textarea
                   [(ngModel)]="revisionContent"
                   rows="10"
                   class="code-textarea"
-                  placeholder="Paste updated questionnaire definition..."
+                  placeholder="Paste or upload updated questionnaire definition..."
                 ></textarea>
                 <button
                   mat-raised-button
@@ -242,6 +262,9 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
     </div>
   `,
   styles: [`
+    .detail-container {
+      width: 100%;
+    }
     .top-nav {
       display: flex;
       align-items: center;
@@ -253,8 +276,9 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
     .overview-card {
       padding: 24px;
       margin-bottom: 24px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
     }
     .overview-header {
       display: flex;
@@ -274,15 +298,16 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       margin: 0;
       font-size: 26px;
       font-weight: 700;
-      color: #0f172a;
+      color: var(--color-text);
     }
     .slug-tag {
-      font-family: monospace;
+      font-family: var(--font-mono);
       font-size: 13px;
-      background: #f1f5f9;
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
       padding: 2px 8px;
       border-radius: 4px;
-      color: #475569;
+      color: var(--color-text-muted);
     }
     .status-pill {
       font-size: 11px;
@@ -291,19 +316,33 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       border-radius: 9999px;
       text-transform: uppercase;
     }
-    .status-pill.live { background: #ecfdf5; color: #059669; }
-    .status-pill.draft { background: #eff6ff; color: #2563eb; }
-    .status-pill.closed { background: #f1f5f9; color: #64748b; }
+    .status-pill.live { 
+      background: rgba(52, 211, 153, 0.12); 
+      color: var(--color-success); 
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+    .status-pill.draft { 
+      background: rgba(251, 191, 36, 0.12); 
+      color: var(--color-warning); 
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+    .status-pill.closed { 
+      background: var(--color-surface-raised); 
+      color: var(--color-text-muted); 
+      border: 1px solid var(--color-border);
+    }
     .primary-actions {
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
     }
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 16px;
-      background: #f8fafc;
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
       padding: 16px;
       border-radius: 8px;
     }
@@ -314,14 +353,16 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
     }
     .meta-label {
       font-size: 12px;
-      color: #64748b;
+      color: var(--color-text-muted);
       font-weight: 600;
       text-transform: uppercase;
     }
     .meta-val {
       font-size: 15px;
       font-weight: 600;
-      color: #1e293b;
+      color: var(--color-text);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
     }
     .deadline-row, .link-row {
       display: flex;
@@ -335,14 +376,16 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
     }
     .date-input {
       padding: 6px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--color-border);
       border-radius: 4px;
       font-size: 13px;
+      background: var(--color-surface);
+      color: var(--color-text);
     }
     .link-code {
-      font-family: monospace;
+      font-family: var(--font-mono);
       font-size: 13px;
-      color: #0369a1;
+      color: var(--color-primary);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -356,8 +399,9 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
     }
     .content-card {
       padding: 16px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
     }
     .version-list {
       display: flex;
@@ -370,9 +414,9 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       justify-content: space-between;
       align-items: center;
       padding: 10px 14px;
-      background: #f8fafc;
+      background: var(--color-surface-raised);
       border-radius: 6px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--color-border);
     }
     .version-info {
       display: flex;
@@ -384,15 +428,16 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       font-weight: 600;
       padding: 2px 6px;
       border-radius: 4px;
-      background: #e2e8f0;
+      background: var(--color-surface);
+      color: var(--color-text-muted);
     }
     .v-status.approved {
-      background: #dcfce7;
-      color: #15803d;
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--color-success);
     }
     .v-date {
       font-size: 12px;
-      color: #64748b;
+      color: var(--color-text-muted);
     }
     .upload-revision {
       margin-top: 16px;
@@ -403,14 +448,38 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       flex-direction: column;
       gap: 10px;
     }
+    .rev-file-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .rev-file-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-success);
+      background: rgba(52, 211, 153, 0.12);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+    .rev-file-tag mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
     .code-textarea {
       width: 100%;
-      font-family: monospace;
+      font-family: var(--font-mono);
       font-size: 13px;
       padding: 8px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--color-border);
       border-radius: 4px;
       box-sizing: border-box;
+      background: var(--color-surface);
+      color: var(--color-text);
     }
     .token-generator-row {
       display: flex;
@@ -422,14 +491,14 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       width: 120px;
     }
     .warn-note {
-      color: #d97706;
+      color: var(--color-warning);
       font-size: 13px;
       margin: 0;
     }
     .token-results {
       margin-top: 16px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
       border-radius: 6px;
       padding: 12px;
     }
@@ -438,6 +507,7 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       justify-content: space-between;
       align-items: center;
       margin-bottom: 8px;
+      color: var(--color-text);
     }
     .token-scroll {
       max-height: 180px;
@@ -451,10 +521,12 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       justify-content: space-between;
       align-items: center;
       font-size: 13px;
-      font-family: monospace;
+      font-family: var(--font-mono);
       padding: 2px 6px;
-      background: #ffffff;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
       border-radius: 4px;
+      color: var(--color-text);
     }
     .url-text {
       overflow: hidden;
@@ -468,7 +540,7 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       flex-shrink: 0;
     }
     .share-icon {
-      color: #64748b;
+      color: var(--color-text-muted);
       width: 32px;
       height: 32px;
       line-height: 32px;
@@ -477,35 +549,39 @@ import { SurveyDetail, TokenItem } from '../../../core/models/survey.model';
       justify-content: center;
     }
     .share-icon:hover {
-      color: #0f172a;
+      color: var(--color-primary);
     }
     .wa-icon:hover {
-      color: #16a34a !important;
+      color: #25d366 !important;
     }
     .email-icon:hover {
-      color: #2563eb !important;
+      color: #4f5bd5 !important;
     }
     .export-card {
       padding: 16px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
     }
     .export-actions {
       display: flex;
       gap: 16px;
       margin-top: 16px;
+      flex-wrap: wrap;
     }
   `]
 })
 export class AdminSurveyDetailComponent implements OnInit {
   survey: SurveyDetail | null = null;
   latestDraftVersion: any = null;
+  cloningSurvey = false;
 
   editingDeadline = false;
   newDeadlineValue = '';
 
   showRevisionEditor = false;
   revisionContent = '';
+  revisionFileName = '';
   uploadingRevision = false;
 
   tokenCount = 5;
@@ -514,6 +590,7 @@ export class AdminSurveyDetailComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private apiService: ApiService,
     public authService: AuthService,
     private snackBar: MatSnackBar
@@ -530,6 +607,22 @@ export class AdminSurveyDetailComponent implements OnInit {
     this.apiService.getSurvey(id).subscribe(data => {
       this.survey = data;
       this.latestDraftVersion = data.versions.find(v => v.status === 'DRAFT');
+    });
+  }
+
+  onCloneSurvey(): void {
+    if (!this.survey) return;
+    this.cloningSurvey = true;
+    this.apiService.cloneSurvey(this.survey.id).subscribe({
+      next: cloned => {
+        this.cloningSurvey = false;
+        this.snackBar.open(`Survey cloned: "${cloned.title}"`, 'Close', { duration: 3000 });
+        this.router.navigate(['/admin/surveys', cloned.id]);
+      },
+      error: err => {
+        this.cloningSurvey = false;
+        this.snackBar.open(err?.error?.detail || 'Failed to clone survey', 'Close', { duration: 4000 });
+      }
     });
   }
 
@@ -585,6 +678,34 @@ export class AdminSurveyDetailComponent implements OnInit {
         this.snackBar.open('Deadline updated successfully.', 'Close', { duration: 3000 });
       }
     });
+  }
+
+  onRevisionFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      this.revisionFileName = file.name;
+      input.value = '';
+
+      if (file.name.toLowerCase().endsWith('.docx')) {
+        this.apiService.extractFile(file).subscribe({
+          next: res => {
+            this.revisionContent = res.content;
+            this.snackBar.open(`Extracted text from "${file.name}"`, 'Close', { duration: 3000 });
+          },
+          error: err => {
+            this.snackBar.open(err?.error?.detail || 'Failed to extract docx file', 'Close', { duration: 3000 });
+          }
+        });
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.revisionContent = (e.target?.result as string) || '';
+          this.snackBar.open(`Loaded "${file.name}" successfully`, 'Close', { duration: 3000 });
+        };
+        reader.readAsText(file);
+      }
+    }
   }
 
   onUploadRevision(): void {
