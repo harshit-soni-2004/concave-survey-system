@@ -179,7 +179,7 @@ https://concave-survey-system.vercel.app (FastAPI on Render + Neon PostgreSQL + 
 API Documentation: https://concave-survey-api.onrender.com/docs
 
 3. Walkthrough Video (approx. 4.5 minutes):
-[INSERT YOUR LOOM VIDEO LINK HERE]
+https://www.loom.com/share/235eb2085d7742b4a6821da6359d80ea
 
 4. Architecture & Design Documentation (/design folder):
 - Entity-Relationship Diagram: design/er-diagram.md & design/er-diagram.png

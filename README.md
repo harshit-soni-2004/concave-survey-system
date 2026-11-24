@@ -1,6 +1,7 @@
 # Concave Insights — Custom Survey System
 
 > **Live Production Demo**: [https://concave-survey-system.vercel.app](https://concave-survey-system.vercel.app)  
+> **Walkthrough Video (Loom)**: [https://www.loom.com/share/235eb2085d7742b4a6821da6359d80ea](https://www.loom.com/share/235eb2085d7742b4a6821da6359d80ea)  
 > **API Docs (Swagger)**: [https://concave-survey-api.onrender.com/docs](https://concave-survey-api.onrender.com/docs)  
 > **Backend Service**: [https://concave-survey-api.onrender.com](https://concave-survey-api.onrender.com) (Render + Neon PostgreSQL)
 
