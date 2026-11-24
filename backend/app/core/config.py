@@ -36,6 +36,10 @@ class Settings(BaseSettings):
             url = self.DATABASE_URL_ENV
             if url.startswith("mysql://"):
                 url = url.replace("mysql://", "mysql+pymysql://", 1)
+            elif url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+            elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+                url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
             return url
         return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}?charset=utf8mb4"
 
