@@ -4,6 +4,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from app.core.config import settings
 
 def ensure_database_exists(db_name: str = None):
+    if "mysql" not in settings.DATABASE_URL:
+        return
     target_db = db_name or settings.MYSQL_DB
     try:
         conn = pymysql.connect(
@@ -11,6 +13,7 @@ def ensure_database_exists(db_name: str = None):
             port=settings.MYSQL_PORT,
             user=settings.MYSQL_USER,
             password=settings.MYSQL_PASSWORD,
+            connect_timeout=3,
             autocommit=True
         )
         with conn.cursor() as cur:

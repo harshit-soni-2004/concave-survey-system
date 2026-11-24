@@ -17,5 +17,5 @@ def health_check(db: Session = Depends(get_db)):
         "service": "Concave Insights Survey API",
         "version": "1.0.0",
         "database": db_status,
-        "database_engine": "MySQL 8.0"
+        "database_engine": "PostgreSQL (Neon)" if "postgres" in str(db.bind.url) else "MySQL 8.0"
     }
