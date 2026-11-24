@@ -225,24 +225,92 @@ import {
               </div>
             </div>
 
-            <!-- Status Distribution Donut Chart -->
+            <!-- Status / Portfolio Distribution Chart with Configurable Metric & Type -->
             <div class="admin-card chart-card-side">
-              <div class="card-header-bar">
-                <h3>
-                  <mat-icon color="primary">pie_chart</mat-icon> Studies by Status
-                </h3>
+              <div class="card-header-bar chart-header-flexible">
+                <div class="header-titles-col">
+                  <h3>
+                    <mat-icon color="primary">pie_chart</mat-icon> {{ getDistributionTitle() }}
+                  </h3>
+                  <span class="chart-subtitle">{{ getDistributionSubtitle() }}</span>
+                </div>
+
+                <div class="chart-controls-group">
+                  <!-- Metric Selector Pills -->
+                  <div class="period-pills-bar" role="group" aria-label="Distribution Metric">
+                    <button 
+                      type="button" 
+                      class="period-pill-btn" 
+                      [class.active]="distributionMetric === 'status'"
+                      (click)="setDistributionMetric('status')"
+                      title="Group by Status (Live / Draft / Closed)">
+                      Status
+                    </button>
+                    <button 
+                      type="button" 
+                      class="period-pill-btn" 
+                      [class.active]="distributionMetric === 'progress'"
+                      (click)="setDistributionMetric('progress')"
+                      title="Group by Quota Progress Tier">
+                      Progress
+                    </button>
+                    <button 
+                      type="button" 
+                      class="period-pill-btn" 
+                      [class.active]="distributionMetric === 'target'"
+                      (click)="setDistributionMetric('target')"
+                      title="Group by Target Sample Size">
+                      Target
+                    </button>
+                    <button 
+                      type="button" 
+                      class="period-pill-btn" 
+                      [class.active]="distributionMetric === 'recency'"
+                      (click)="setDistributionMetric('recency')"
+                      title="Group by Creation Date Recency">
+                      Recency
+                    </button>
+                  </div>
+
+                  <!-- Chart Type Toggle (Donut vs Pie vs Polar) -->
+                  <button 
+                    type="button" 
+                    class="btn-chart-type-toggle" 
+                    (click)="toggleDonutType()" 
+                    [title]="'Current: ' + donutChartType + '. Click to cycle Donut / Pie / Polar'">
+                    <mat-icon>{{ donutChartType === 'doughnut' ? 'donut_large' : (donutChartType === 'pie' ? 'pie_chart' : 'radar') }}</mat-icon>
+                    <span>{{ donutChartType === 'doughnut' ? 'Donut' : (donutChartType === 'pie' ? 'Pie' : 'Polar') }}</span>
+                  </button>
+                </div>
               </div>
+
               <div class="card-body-content chart-body donut-body">
                 <div *ngIf="surveys.length > 0" class="donut-wrapper">
                   <canvas 
                     baseChart
                     [data]="donutChartData"
                     [options]="donutChartOptions"
-                    [type]="'doughnut'">
+                    [type]="donutChartType">
                   </canvas>
-                  <div class="donut-center-metric">
-                    <span class="donut-center-val">{{ surveys.length }}</span>
-                    <span class="donut-center-lbl">Studies</span>
+                  <div class="donut-center-metric" *ngIf="donutChartType === 'doughnut'">
+                    <ng-container [ngSwitch]="distributionMetric">
+                      <ng-container *ngSwitchCase="'status'">
+                        <span class="donut-center-val">{{ surveys.length }}</span>
+                        <span class="donut-center-lbl">Studies</span>
+                      </ng-container>
+                      <ng-container *ngSwitchCase="'progress'">
+                        <span class="donut-center-val">{{ getAvgProgress() }}%</span>
+                        <span class="donut-center-lbl">Avg Progress</span>
+                      </ng-container>
+                      <ng-container *ngSwitchCase="'target'">
+                        <span class="donut-center-val">{{ getTotalTarget() | number }}</span>
+                        <span class="donut-center-lbl">Total Target</span>
+                      </ng-container>
+                      <ng-container *ngSwitchCase="'recency'">
+                        <span class="donut-center-val">{{ getRecentCount() }}</span>
+                        <span class="donut-center-lbl">Last 30d</span>
+                      </ng-container>
+                    </ng-container>
                   </div>
                 </div>
                 <div *ngIf="surveys.length === 0" class="no-data-msg">
@@ -1700,13 +1768,17 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
 
   lineChartOptions: ChartConfiguration<any>['options'] = {};
 
+  // Configurable Distribution Chart State
+  distributionMetric: 'status' | 'progress' | 'target' | 'recency' = 'status';
+  donutChartType: 'doughnut' | 'pie' | 'polarArea' = 'doughnut';
+
   // Chart.js Donut Configuration
-  donutChartData: ChartData<'doughnut'> = {
+  donutChartData: ChartData<any> = {
     labels: ['Live', 'Draft', 'Closed'],
     datasets: []
   };
 
-  donutChartOptions: ChartConfiguration<'doughnut'>['options'] = {};
+  donutChartOptions: ChartConfiguration<any>['options'] = {};
 
   constructor(
     private apiService: ApiService,
@@ -1726,6 +1798,14 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
       if (savedPeriod) {
         const p = parseInt(savedPeriod, 10);
         if ([7, 14, 30, 60, 90, 180, 365].includes(p)) this.selectedPeriodDays = p;
+      }
+      const savedMetric = localStorage.getItem('concave_distribution_metric');
+      if (savedMetric && ['status', 'progress', 'target', 'recency'].includes(savedMetric)) {
+        this.distributionMetric = savedMetric as any;
+      }
+      const savedDonutType = localStorage.getItem('concave_donut_chart_type');
+      if (savedDonutType && ['doughnut', 'pie', 'polarArea'].includes(savedDonutType)) {
+        this.donutChartType = savedDonutType as any;
       }
     } catch {}
 
@@ -1790,7 +1870,7 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
     this.donutChartOptions = {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '72%',
+      cutout: this.donutChartType === 'doughnut' ? '72%' : 0,
       plugins: {
         legend: {
           position: 'bottom',
@@ -1960,28 +2040,184 @@ export class AdminSurveyListComponent implements OnInit, OnDestroy {
     this.updateDonutChart();
   }
 
-  updateDonutChart(): void {
-    const live = this.countByStatus('LIVE');
-    const draft = this.countByStatus('DRAFT');
-    const closed = this.countByStatus('CLOSED');
+  setDistributionMetric(metric: 'status' | 'progress' | 'target' | 'recency'): void {
+    if (this.distributionMetric === metric) return;
+    this.distributionMetric = metric;
+    try {
+      localStorage.setItem('concave_distribution_metric', metric);
+    } catch {}
+    this.updateDonutChart();
+  }
 
+  toggleDonutType(): void {
+    const cycle: ('doughnut' | 'pie' | 'polarArea')[] = ['doughnut', 'pie', 'polarArea'];
+    const idx = cycle.indexOf(this.donutChartType);
+    this.donutChartType = cycle[(idx + 1) % cycle.length];
+    try {
+      localStorage.setItem('concave_donut_chart_type', this.donutChartType);
+    } catch {}
+    this.updateChartOptions();
+    this.updateDonutChart();
+  }
+
+  getDistributionTitle(): string {
+    switch (this.distributionMetric) {
+      case 'status': return 'Studies by Status';
+      case 'progress': return 'Studies by Progress';
+      case 'target': return 'Studies by Target Size';
+      case 'recency': return 'Studies by Recency';
+    }
+  }
+
+  getDistributionSubtitle(): string {
+    switch (this.distributionMetric) {
+      case 'status': return 'Lifecycle distribution';
+      case 'progress': return 'Quota completion tiers';
+      case 'target': return 'Sample size segmentation';
+      case 'recency': return 'Creation recency breakdown';
+    }
+  }
+
+  getAvgProgress(): number {
+    if (!this.surveys.length) return 0;
+    const sum = this.surveys.reduce((acc, s) => {
+      const target = s.target || 1;
+      const completes = s.completed_count || 0;
+      return acc + Math.min(100, Math.round((completes / target) * 100));
+    }, 0);
+    return Math.round(sum / this.surveys.length);
+  }
+
+  getTotalTarget(): number {
+    return this.surveys.reduce((acc, s) => acc + (s.target || 0), 0);
+  }
+
+  getRecentCount(): number {
+    const now = Date.now();
+    const thirtyDays = 30 * 86400000;
+    return this.surveys.filter(s => {
+      if (!s.created_at) return false;
+      const d = new Date(s.created_at).getTime();
+      return (now - d) <= thirtyDays;
+    }).length;
+  }
+
+  updateDonutChart(): void {
     const isDark = this.themeService.isDark();
-    const liveColor = isDark ? '#2DD4F5' : '#10B981';
-    const draftColor = isDark ? '#8B6CFF' : '#6366F1';
-    const closedColor = isDark ? '#4C3BCF' : '#94A3B8';
     const borderColor = isDark ? '#07070F' : '#FFFFFF';
 
-    this.donutChartData = {
-      labels: ['Live', 'Draft', 'Closed'],
-      datasets: [
-        {
-          data: [live, draft, closed],
-          backgroundColor: [liveColor, draftColor, closedColor],
-          borderWidth: 2,
-          borderColor: borderColor
+    if (this.distributionMetric === 'status') {
+      const live = this.countByStatus('LIVE');
+      const draft = this.countByStatus('DRAFT');
+      const closed = this.countByStatus('CLOSED');
+
+      const liveColor = isDark ? '#2DD4F5' : '#10B981';
+      const draftColor = isDark ? '#8B6CFF' : '#6366F1';
+      const closedColor = isDark ? '#4C3BCF' : '#94A3B8';
+
+      this.donutChartData = {
+        labels: ['Live', 'Draft', 'Closed'],
+        datasets: [
+          {
+            data: [live, draft, closed],
+            backgroundColor: [liveColor, draftColor, closedColor],
+            borderWidth: 2,
+            borderColor: borderColor
+          }
+        ]
+      };
+    } else if (this.distributionMetric === 'progress') {
+      let completeCount = 0;
+      let pacingCount = 0;
+      let earlyCount = 0;
+      let zeroCount = 0;
+
+      for (const s of this.surveys) {
+        const pct = s.target ? ((s.completed_count || 0) / s.target) * 100 : 0;
+        if (pct >= 100) completeCount++;
+        else if (pct >= 50) pacingCount++;
+        else if (pct > 0) earlyCount++;
+        else zeroCount++;
+      }
+
+      const colors = isDark 
+        ? ['#34D399', '#2DD4F5', '#8B6CFF', '#475569']
+        : ['#10B981', '#06B6D4', '#6366F1', '#94A3B8'];
+
+      this.donutChartData = {
+        labels: ['Completed (100%+)', 'Pacing (50-99%)', 'Early (1-49%)', 'Zero Completes (0%)'],
+        datasets: [
+          {
+            data: [completeCount, pacingCount, earlyCount, zeroCount],
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: borderColor
+          }
+        ]
+      };
+    } else if (this.distributionMetric === 'target') {
+      let largeCount = 0;
+      let mediumCount = 0;
+      let smallCount = 0;
+
+      for (const s of this.surveys) {
+        const t = s.target || 0;
+        if (t >= 200) largeCount++;
+        else if (t >= 100) mediumCount++;
+        else smallCount++;
+      }
+
+      const colors = isDark
+        ? ['#EC4899', '#8B6CFF', '#2DD4F5']
+        : ['#DB2777', '#6366F1', '#06B6D4'];
+
+      this.donutChartData = {
+        labels: ['Large (200+)', 'Medium (100-199)', 'Small (<100)'],
+        datasets: [
+          {
+            data: [largeCount, mediumCount, smallCount],
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: borderColor
+          }
+        ]
+      };
+    } else if (this.distributionMetric === 'recency') {
+      const now = Date.now();
+      const sevenDays = 7 * 86400000;
+      const thirtyDays = 30 * 86400000;
+
+      let weekCount = 0;
+      let monthCount = 0;
+      let olderCount = 0;
+
+      for (const s of this.surveys) {
+        if (!s.created_at) {
+          olderCount++;
+          continue;
         }
-      ]
-    };
+        const diff = now - new Date(s.created_at).getTime();
+        if (diff <= sevenDays) weekCount++;
+        else if (diff <= thirtyDays) monthCount++;
+        else olderCount++;
+      }
+
+      const colors = isDark
+        ? ['#2DD4F5', '#8B6CFF', '#334155']
+        : ['#06B6D4', '#6366F1', '#94A3B8'];
+
+      this.donutChartData = {
+        labels: ['Past 7 Days', 'Past 30 Days', 'Older'],
+        datasets: [
+          {
+            data: [weekCount, monthCount, olderCount],
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: borderColor
+          }
+        ]
+      };
+    }
   }
 
   get hasDailyData(): boolean {
