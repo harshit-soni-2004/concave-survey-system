@@ -154,12 +154,6 @@ import { Subscription, interval } from 'rxjs';
               <mat-icon>{{ themeService.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
             </button>
 
-            <!-- Dynamic Health Status backed by /api/health -->
-            <div class="health-status" [class.unhealthy]="!dbHealthy">
-              <span class="health-dot" [class.green]="dbHealthy" [class.red]="!dbHealthy"></span>
-              <span class="health-text">{{ healthLabel }}</span>
-            </div>
-
             <button mat-flat-button color="primary" routerLink="/admin/upload" class="new-survey-btn">
               <mat-icon>add</mat-icon> <span class="btn-text">New Survey</span>
             </button>
