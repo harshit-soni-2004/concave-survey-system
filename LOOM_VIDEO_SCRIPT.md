@@ -34,7 +34,8 @@
 **Voiceover (Word-for-Word):**  
 > *"Hello! Welcome to my walkthrough of **Concave Insights**, an enterprise-grade survey platform engineered specifically for high-throughput market research operations running on 15-day fieldwork cycles.*  
 >  
-> *Rather than writing bespoke frontend and backend code for each survey, researchers author studies in a standardized plain text tag format. The platform handles the rest: line-level syntax validation, frozen immutable versioning, real-time autosave execution, screener disqualification, and clean analytical exports.*  
+> *Rather than writing bespoke frontend and backend code for each survey, researchers author studies in a standardized plain text tag format. 
+The platform handles the rest: line-level syntax validation, frozen immutable versioning, real-time autosave execution, screener disqualification, and clean analytical exports.*  
 >  
 > *The backend is built with **FastAPI and SQLAlchemy on MySQL 8.0**, and the frontend is a modern **Angular 18** application using standalone components, reactive signals, and WCAG AA compliant dark and light themes. Let's look at how a survey gets ingested!"*
 
@@ -154,3 +155,48 @@
 | **Observability & Analytics** | Configurable velocity chart (1W–1Y, Line/Bar), configurable distribution chart (Status/Progress/Target/Recency in Donut/Pie/Polar), widget minimize toggles, question-level analytics hub, drop-off funnel report. |
 | **Quality & Export** | Speeder detection (< 1/3 median duration), straight-liner detection, formula injection mitigation, streaming CSV and Excel (.xlsx) export. |
 | **Enterprise Architecture** | Transactional row-level concurrency locking (`SELECT FOR UPDATE`), WCAG AA dark/light themes, Docker Compose, 201/201 automated tests passing (100.0%). |
+
+---
+
+## Final Submission Email Template (Ready to Send)
+
+When your Loom video is recorded, copy and paste this exact email response:
+
+```text
+To: Team Concave Insights (Reply to thread)
+Cc: genis@concaveinsights.com
+Subject: Technical Assessment - Harshit Soni - Custom Survey System
+
+Dear Team Concave Insights and Genis,
+
+I have completed the technical assessment for the Full Stack Developer role. Please find the deliverables below:
+
+1. GitHub Repository:
+https://github.com/harshit-soni-2004/concave-survey-system
+
+2. Walkthrough Video (approx. 4.5 minutes):
+[INSERT YOUR LOOM VIDEO LINK HERE]
+
+3. Architecture & Design Documentation (/design folder):
+- Entity-Relationship Diagram: design/er-diagram.md & design/er-diagram.png
+- Admin & Researcher User Flow: design/user-flow-admin.md & design/user-flow-admin.png
+- Respondent Portal User Flow: design/user-flow-respondent.md & design/user-flow-respondent.png
+- Architectural Decisions: design/decisions.md
+- Schema Changes & Migrations: design/schema-changes.md
+
+Key Implementation Highlights:
+• Line-Aware Parser & Validator: Deterministic XML tag parser tested against both concave_sample_questionnaire.txt and concave_broken_questionnaire.txt, reporting line-numbered syntax and semantic errors with 1-click jump-to-line highlighting.
+• Immutable Versioning & Quota Engine: State machine (DRAFT -> LIVE -> CLOSED), isolated test sessions (is_test=true), and transactional concurrency control (SELECT FOR UPDATE) preventing quota overfill.
+• Real-Time Autosave & Logic Engine: Question-level autosave, dynamic text piping, forward skip-to, and boolean show-if logic with strict AND > OR operator precedence.
+• Advanced Research Features: Real-time bilingual English ⇄ Hindi toggle with Devanagari script, balanced concept rotation (AB vs BA arms), and per-respondent matrix row shuffling.
+• Data Observability & Standardized Exports: Configurable dashboard charts (timeframes 1W–1Y, Line/Bar, Donut/Pie/Polar Area), dedicated question analytics hub with drop-off funnel metrics, speeder/straight-liner detection, and CSV/Excel (.xlsx) exports.
+• Test Suite: 100% automated pass rate across all 201 test cases (verified via Docker Compose and Pytest).
+
+The application is containerized with Docker Compose (docker-compose up --build) and ready for immediate local evaluation.
+
+Thank you for this opportunity, and I look forward to your feedback and our next conversation!
+
+Warm regards,
+Harshit Soni
+```
+
