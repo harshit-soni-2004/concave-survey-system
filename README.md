@@ -1,5 +1,9 @@
 # Concave Insights — Custom Survey System
 
+> **Live Production Demo**: [https://concave-survey-system.vercel.app](https://concave-survey-system.vercel.app)  
+> **API Docs (Swagger)**: [https://concave-survey-api.onrender.com/docs](https://concave-survey-api.onrender.com/docs)  
+> **Backend Service**: [https://concave-survey-api.onrender.com](https://concave-survey-api.onrender.com) (Render + Neon PostgreSQL)
+
 A resilient, tag-driven survey platform designed for market research operations. The system dynamically parses custom plain `.txt` questionnaires, strictly validates logic and semantics with line-level accuracy, provides isolated test/preview simulations, enforces frozen immutable versions upon approval, autosaves respondent answers in real time, and exports unified datasets in standard CSV/Excel formats.
 
 ---

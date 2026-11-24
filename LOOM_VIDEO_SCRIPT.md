@@ -174,10 +174,14 @@ I have completed the technical assessment for the Full Stack Developer role. Ple
 1. GitHub Repository:
 https://github.com/harshit-soni-2004/concave-survey-system
 
-2. Walkthrough Video (approx. 4.5 minutes):
+2. Live Production Demo:
+https://concave-survey-system.vercel.app (FastAPI on Render + Neon PostgreSQL + Angular 18 on Vercel)
+API Documentation: https://concave-survey-api.onrender.com/docs
+
+3. Walkthrough Video (approx. 4.5 minutes):
 [INSERT YOUR LOOM VIDEO LINK HERE]
 
-3. Architecture & Design Documentation (/design folder):
+4. Architecture & Design Documentation (/design folder):
 - Entity-Relationship Diagram: design/er-diagram.md & design/er-diagram.png
 - Admin & Researcher User Flow: design/user-flow-admin.md & design/user-flow-admin.png
 - Respondent Portal User Flow: design/user-flow-respondent.md & design/user-flow-respondent.png
