@@ -1,135 +1,156 @@
-# Concave Insights — Loom Video Presentation Script
+# Concave Insights — Complete Loom Video Presentation Script
 
-> **Target Duration**: 3:45 to 4:30 minutes (Within the strict 3–5 min requirement)  
-> **Resolution**: 1080p full screen (Chrome browser zoomed to 100% or 110%)  
-> **Demo URL**: `http://localhost:4200` (or `http://localhost`)  
+> **Target Duration**: 4:15 to 4:45 minutes (Optimized for thoroughness within the 3–5 min window)  
+> **Screen Resolution**: 1080p full screen (Chrome browser zoomed to 100% or 110%)  
+> **Demo URL**: `http://localhost:4200`  
 > **Demo Accounts**: `admin@concave.com` / `AdminPassword123!`
 
 ---
 
-## Pre-Recording Checklist (Setup Before Hitting Record)
-1. **Reset Database to Clean Demo State**:
+## Pre-Recording Checklist (Set this up before pressing record!)
+1. **Reset Demo Data to Pristine State**:
    ```bash
    python scripts/generate_demo_data.py --count 150 --clean
    ```
-2. **Open 3 Browser Tabs Ready**:
-   - **Tab 1**: Portfolio Dashboard (`http://localhost:4200/admin/surveys`) logged in as Admin.
-   - **Tab 2**: Questionnaire Upload (`http://localhost:4200/admin/upload`).
-   - **Tab 3**: In-Depth Analytics (`http://localhost:4200/admin/analytics`).
-   - *(Optional Incognito Window)*: Respondent Survey Link (`http://localhost:4200/s/smartphone_study`).
+2. **Have These 4 Tabs Open & Ready in Order**:
+   - **Tab 1**: Portfolio Dashboard (`http://localhost:4200/admin/surveys`)
+   - **Tab 2**: Questionnaire Upload & Ingestion (`http://localhost:4200/admin/upload`)
+   - **Tab 3**: Study Details & Version Management (`http://localhost:4200/admin/surveys/2`)
+   - **Tab 4**: Bilingual & Advanced Logic Survey (`http://localhost:4200/s/bonus_feature_demo`)
+   - **Tab 5**: In-Depth Analytics Hub (`http://localhost:4200/admin/analytics`)
 
 ---
 
-## Scene-by-Scene Script
+## Detailed Scene-by-Scene Script
 
-### Scene 1: Introduction & High-Level Architecture (0:00 – 0:35)
+---
+
+### Scene 1: Introduction, Architecture & Theme (0:00 – 0:35)
 **What to Show on Screen:**  
-Start on Tab 1 (**Portfolio Dashboard**). Mouse hovering smoothly over the KPI cards.
+- Start on **Tab 1 (Portfolio Dashboard)**.  
+- Hover cursor smoothly over the KPI summary cards: *Live Studies*, *Total Completes*, *In Progress*, *Terminated*, *Overall Progress*.  
+- Click the **Theme Toggle** (sun/moon icon) once to toggle from Dark to Light mode and back to Dark, demonstrating full accessibility and dynamic Chart.js theme re-rendering.
 
-**What to Say:**  
-> *"Hi everyone! Welcome to my walkthrough of **Concave Insights**, an enterprise-grade survey intelligence platform designed specifically for high-throughput market research operations running on 15-day fieldwork cycles.*  
+**Voiceover (Word-for-Word):**  
+> *"Hello! Welcome to my walkthrough of **Concave Insights**, an enterprise-grade survey platform engineered specifically for high-throughput market research operations running on 15-day fieldwork cycles.*  
 >  
-> *Instead of writing custom code for every research study, researchers simply author questionnaires in a plain text tag format. The platform handles the rest: line-level syntax validation, frozen immutable versioning, real-time autosave respondent execution, and analytical data export.*  
+> *Rather than writing bespoke frontend and backend code for each survey, researchers author studies in a standardized plain text tag format. The platform handles the rest: line-level syntax validation, frozen immutable versioning, real-time autosave execution, screener disqualification, and clean analytical exports.*  
 >  
-> *The backend is built with **FastAPI and SQLAlchemy on MySQL 8.0**, and the frontend is a modern **Angular 18** application using standalone components and responsive Material design. Let's dive in!"*
+> *The backend is built with **FastAPI and SQLAlchemy on MySQL 8.0**, and the frontend is a modern **Angular 18** application using standalone components, reactive signals, and WCAG AA compliant dark and light themes. Let's look at how a survey gets ingested!"*
 
 ---
 
-### Scene 2: Questionnaire Parser & Line-Numbered Error Highlighter (0:35 – 1:30)
+### Scene 2: Line-Aware Ingestion, Error Highlighter, Unique Constraints & Calendar (0:35 – 1:35)
 **What to Show on Screen:**  
-Switch to Tab 2 (**Upload Questionnaire Definition** at `/admin/upload`).  
-1. Click the **"Broken Sample (Test Validator)"** button.  
-2. Scroll through the editor to show the line numbers gutter with red dots `●`, and the red highlighted rows.  
-3. Click on **Line 8** or **Line 12** in the error banner — show how it smoothly jumps to that exact line in the editor and highlights the code!  
-4. Click **"Load Valid Study Sample"**. Show the green success banner.  
-5. Point out the **Study Identity & Configuration** card: explain workspace-wide unique title enforcement, unique slug generator, target sample, and click the **Calendar** button to show the interactive calendar popover and the 1-click quick presets (`+2 Weeks (14d)`).
+- Switch to **Tab 2 (`/admin/upload`)**.  
+- Click the red **"Broken Sample (Test Validator)"** button.  
+- Scroll down the editor: show the line numbers gutter with red dots `●`, and the red-tinted erroneous lines.  
+- Click on **Line 8** in the error banner — watch the editor smoothly scroll, center, and highlight the broken tag `<question id="q2" type="unknown_type">` with a navigation alert!  
+- Click the blue **"Load Valid Study Sample"** button. The green verification banner appears.  
+- Show the **Study Identity & Configuration** card:
+  - Point out the **Survey Title** field and explain the workspace-wide unique name constraint (preventing duplicate titles).
+  - Point out the auto-generated **Study Slug** preview (`/s/...`).
+  - Click the **"Calendar"** button: show the interactive calendar popover with month navigation, day cells, and time presets.
+  - Click the **"+2 Weeks (14d)"** quick preset chip to show the deadline automatically set to 14 days ahead.
 
-**What to Say:**  
-> *"First, let's look at the questionnaire ingestion pipeline. Traditional regex parsers fail when survey logic gets nested or broken. Here, we built a deterministic, line-aware XML parser.*  
+**Voiceover (Word-for-Word):**  
+> *"Traditional regex parsers break when survey logic gets nested or corrupted. To solve this, we built a deterministic, line-aware parser that ingests custom `.txt` questionnaires across 13 question types.*  
 >  
-> *If a researcher uploads a file with syntax or semantic errors — let's load this broken sample — the validator immediately catches all issues simultaneously. Notice how each line number is pinned in the gutter, erroneous lines are highlighted in crimson with pulsing markers, and clicking any error in the summary list instantly jumps right to that exact line in the code.*  
+> *When a researcher uploads a file with syntax or semantic errors — let's load this broken sample — the validator catches all issues simultaneously. Notice how line numbers are pinned in the gutter, erroneous rows are highlighted in crimson with pulsing markers, and clicking any error in the validation report immediately jumps and highlights that exact line in the code.*  
 >  
-> *Now let's load a valid study. The system performs two-way synchronization: extracting the title, slug, and targets into this configuration panel. We enforce workspace-wide unique study names so researchers never collide, and provide an interactive fieldwork calendar with one-click presets like plus two weeks."*
+> *Now let's load a valid study. The configuration panel synchronizes two-way with the XML. We enforce a workspace-wide unique title constraint so studies never collide, and provide an interactive fieldwork calendar with one-click presets like plus two weeks to automatically track quota completion pace."*
 
 ---
 
-### Scene 3: Versioning Lifecycle & Draft vs. Live Immutability (1:30 – 2:10)
+### Scene 3: Versioning Lifecycle, Isolated Preview & 1-Click Cloning (1:35 – 2:20)
 **What to Show on Screen:**  
-Switch to Tab 1 (**Portfolio Dashboard**), click on any Draft study or **"Smartphone Usage Study"** to open **Study Details** (`/admin/surveys/2`).  
-Point out:
-- Version badge (`v1`, `v2`).
-- Target Completes & Quotas.
-- The **"Preview / Test"** button.
-- The **"Generate Invite Links"** batch tool and the **WhatsApp / Email sharing** buttons.
+- Switch to **Tab 3 (`/admin/surveys/2` - Study Details)**.  
+- Point out the **Version badge** (`Version 1 - LIVE`), target completes, and live quota bars.  
+- Hover over the **"Preview / Test"** button and explain test session isolation.  
+- Click the **"Clone Survey"** button in the header. (Notice how it creates a clean Draft `Copy of...` with 0 respondents and a fresh slug).  
+- Show the **"Generate Invite Links"** batch tool, and point out the **Share via WhatsApp** and **Share via Email** buttons.
 
-**What to Say:**  
-> *"Next is the survey state machine and versioning lifecycle. Every survey starts as a DRAFT. Researchers can launch an isolated test simulation using the Preview button, which tags answers with `is_test=true` so test runs never contaminate production quota counts.*  
+**Voiceover (Word-for-Word):**  
+> *"Next is our survey lifecycle state machine: DRAFT, LIVE, and CLOSED.*  
 >  
-> *When approved, the version's Abstract Syntax Tree is frozen and becomes strictly immutable. If a study needs revisions while in the field, researchers upload version 2 as a new draft. Crucially, respondents who started on version 1 remain pinned to version 1, guaranteeing contract integrity.*  
+> *Before going live, researchers can launch an isolated test simulation using the Preview button. This flags all answers with `is_test=true`, ensuring test runs never pollute production quota counts or quality metrics.*  
 >  
-> *Once live, admins can generate batches of single-use respondent tokens or distribute the public link with one-click WhatsApp and Email share integrations."*
+> *When approved, the version's Abstract Syntax Tree is frozen and becomes strictly immutable. If revisions are required mid-fieldwork, version 2 is uploaded as a new draft. Crucially, respondents who started on version 1 remain pinned to version 1 throughout their session.*  
+>  
+> *We also support one-click Survey Cloning to rapidly duplicate studies into new drafts, batch token generation, and native one-click sharing via WhatsApp and Email for effortless respondent outreach."*
 
 ---
 
-### Scene 4: Respondent Experience & The Logic Engine (2:10 – 3:15)
+### Scene 4: Respondent Experience, Autosave, Logic Engine & Bonus Features (2:20 – 3:30)
 **What to Show on Screen:**  
-Open a new tab with `/s/smartphone_study` or `/s/bonus_feature_demo`.  
-1. Answer Q1 (Consent: Yes) -> Click Next.  
-2. Answer Age -> Show dynamic **piping** (e.g. *"As a 25-year-old..."*).  
-3. Show **show-if logic** and **dropdown / matrix** questions.  
-4. Show the **Language Toggle (English ⇄ Hindi)** on `/s/bonus_feature_demo`: toggle to Hindi and back to show live script switching.  
-5. Point out the bottom autosave indicator: show that refreshing the browser retains the exact question and previous answers.  
-6. Explain screener disqualification: mention that failing a screener logs granular reasons like `"q4: City not in scope | q5: Not smartphone user"`, and clicking Back prunes downstream terminations cleanly.
+- Switch to **Tab 4 (`/s/bonus_feature_demo`)**.  
+- Click **"Yes"** on consent -> Click **Next**.  
+- Answer the Age question -> Show dynamic **Text Piping** on the next question (e.g., *"As a 28-year-old..."*).  
+- Demonstrate **Show-If Logic**: select an option that reveals conditional follow-up questions.  
+- Show the **Language Toggle** in the top header: click **Hindi**. Notice the question text, option labels, and matrix rows instantly switch into clean **Devanagari script**. Toggle back to English.  
+- Show **Matrix Row Shuffling**: mention that rows are randomized per respondent and preserved across Back/Next navigation.  
+- Mention **Balanced Concept Rotation**: explain how the backend balances respondents 50/50 between concept blocks (AB vs BA) to eliminate order bias.  
+- Press browser **Refresh (F5)**: demonstrate that the respondent is returned to the exact question with previous answers preserved via real-time autosave.  
+- Explain **Screener Disqualification**: if a respondent fails a screener, the system logs granular reasons like `q4: City out of scope | q5: Non-user`, and clicking Back prunes downstream answers cleanly.
 
-**What to Say:**  
-> *"Now let's look at the respondent experience. The UI is mobile-first, distraction-free, and keyboard-accessible.*  
+**Voiceover (Word-for-Word):**  
+> *"Now let's experience the respondent portal. The interface is mobile-first, distraction-free, and keyboard accessible.*  
 >  
-> *Every answer is autosaved in real-time. If a respondent accidentally closes their browser and reopens their token link, they resume exactly where they left off.*  
+> *Every answer is autosaved in real time — if a participant loses connection or refreshes their browser, they resume right where they left off without losing data.*  
 >  
-> *Under the hood, our logic engine evaluates boolean `show-if` conditions with proper AND/OR operator precedence, question-to-question text piping, skip-to targets, and dynamic option filtering.*  
+> *Our logic engine evaluates boolean `show-if` conditions with proper AND/OR operator precedence, dynamic text piping, forward skip-to routing, and option-filtering from previous answers.*  
 >  
-> *For our bonus features, we implemented per-respondent matrix row shuffling, balanced concept rotation where respondents are dynamically alternated between concept blocks to avoid bias, and bilingual survey support — as you can see, toggling between English and Hindi translates questions, options, and matrix rows seamlessly in real time."*
+> *For our advanced research features: we built per-respondent matrix row shuffling, balanced concept rotation to alternate concept blocks evenly between respondents and eliminate presentation bias, and bilingual survey support — as you can see, toggling between English and Hindi translates questions, choices, and scale matrices dynamically in real time.*  
+>  
+> *Furthermore, screener disqualifications chain multi-reason failures, while our intelligent Back button allows respondents to correct mistakes while cleanly pruning downstream records."*
 
 ---
 
-### Scene 5: Portfolio Analytics, In-Depth Question Breakdowns & Exports (3:15 – 4:05)
+### Scene 5: Configurable Portfolio Dashboard, Analytics Hub & Data Exports (3:30 – 4:20)
 **What to Show on Screen:**  
-1. Return to Tab 1 (**Portfolio Dashboard**):  
-   - Click the timeframe pills: `1W`, `1M`, `1Q` on the Completes graph.  
-   - Click the **Bar / Line** toggle.  
-   - On the right card, click **Progress** and **Target Size** pills, and toggle **Donut ⇄ Pie**.  
-   - Click **Minimize** on the charts row to show how it collapses to save space, and **Minimize** on Recent Activity Feed.  
-2. Switch to Tab 3 (**In-Depth Analytics** at `/admin/analytics`):  
-   - Show the study dropdown selector with high contrast.  
-   - Scroll down to show Question-level charts (Rating averages, NPS breakdown, Matrix distributions).  
-3. Show the **"Download CSV"** and **"Download Excel"** buttons on the dashboard.
+- Return to **Tab 1 (Portfolio Dashboard)**:  
+  - Point to the **Completes per Day** graph: click timeframe pills: `1W`, `1M`, `1Q`.  
+  - Click the **"Line / Bar"** toggle button to switch between smooth line area and production bar chart.  
+  - On the right **Studies Distribution** card: click the **"Progress"** and **"Target Size"** pills, and click the chart type toggle to cycle between **Donut**, **Pie**, and **Polar Area**!  
+  - Click the **"Minimize"** button on the charts row and on the **Recent Activity Feed** to demonstrate how research leads can collapse sections to focus on the Studies Repository.  
+- Switch to **Tab 5 (`/admin/analytics` - In-Depth Analytics Hub)**:  
+  - Click the **Study Selector** dropdown (show solid contrast and clear status badges).  
+  - Scroll through the question-level frequency charts, rating scales, and NPS breakdown.  
+- Return to Dashboard and point to **"Download CSV"** and **"Download Excel (.xlsx)"**.
 
-**What to Say:**  
-> *"Back in the Admin Portal, research coordinators have real-time observability across all active studies.*  
+**Voiceover (Word-for-Word):**  
+> *"Back in the Admin Workspace, research leads have comprehensive portfolio observability.*  
 >  
-> *On the portfolio dashboard, the completion velocity graph is fully configurable from 1 week up to a full year, with instant toggles between smooth line area and production bar charts. The companion studies distribution card allows slicing the portfolio by Status, Quota Progress tier, or Target Sample size, in both Donut and Pie presentation modes. Both widgets can be minimized with one click to keep the workspace clean.*  
+> *On the main dashboard, the completion velocity graph is fully configurable from 1 week up to a full year, with instant toggles between line and bar charts. The companion distribution card allows slicing active studies by Status, Quota Progress tier, or Target Sample size, across Donut, Pie, and Polar chart modes. Both widgets can be minimized with one click to keep the dashboard streamlined.*  
 >  
-> *In our dedicated Analytics Hub, researchers can inspect question-by-question response frequencies, NPS scores, matrix distributions, and drop-off funnel dropouts.*  
+> *In our dedicated Analytics Hub, researchers can drill down into question-by-question response frequencies, NPS distributions, and stage drop-off funnels.*  
 >  
-> *When fieldwork concludes, administrators can export standardized CSV and Excel datasets in under two seconds. Exports include sanitized headers, respondent quality flags like speeder and straight-liner detection, and balanced rotation arm assignments."*
+> *When fieldwork concludes, administrators can export standardized CSV and Excel datasets in under two seconds. Exports include sanitized headers, balanced rotation arm assignments, and automated quality flags — including runtime speeder detection for completions under one-third median duration, and straight-liner detection across matrix questions."*
 
 ---
 
-### Scene 6: Concurrency & Wrap-Up (4:05 – 4:30)
+### Scene 6: Concurrency Locking & Conclusion (4:20 – 4:40)
 **What to Show on Screen:**  
-Bring up the terminal or README showing the test suite summary: `201/201 tests passed (100.0%)`.
+- Open terminal or VS Code showing `python scratch/run_full_qa.py` output:  
+  `Total Tests Executed: 201 | Pass: 201, Fail: 0 | Pass Rate: 100.0%`.
 
-**What to Say:**  
-> *"To ensure data integrity under high concurrent respondent volume, quota completion is protected using transactional row-level database locking with `SELECT FOR UPDATE`, preventing race conditions and quota over-fulfillment.*  
+**Voiceover (Word-for-Word):**  
+> *"Finally, to protect data integrity under heavy concurrent participant traffic, quota fulfillment is enforced using transactional database row locking with `SELECT FOR UPDATE`, eliminating race conditions and preventing over-completion.*  
 >  
-> *The entire platform is containerized with Docker Compose, and backed by a comprehensive automated test suite with 201 senior QA tests passing at 100%.*  
+> *The entire application is containerized with Docker Compose, and verified by our automated test suite with all 201 senior QA tests passing at 100%.*  
 >  
-> *Thank you so much for watching, and I look forward to your feedback!"*
+> *Thank you very much for your time, and I look forward to discussing the platform with you!"*
 
 ---
 
-## Pro-Tips for Delivering an A+ Presentation
-- **Tone**: Confident, steady, professional. Avoid rushing or filler words ("um", "like").
-- **Mouse Cursor**: Guide the viewer's eye deliberately. Don't shake or circle the mouse rapidly.
-- **Audio**: Use a headset or external mic so your voice is crisp and clear.
-- **Video Privacy**: When uploading to Loom, set the link to **"Public"** or **"Anyone with the link can view"** so the evaluation panel can access it without login friction.
+## Quick Reference Summary Table for the Evaluators
+
+| Feature Area | Key Deliverables Highlighted in Video |
+| :--- | :--- |
+| **Ingestion & Editing** | Plain `.txt` deterministic parser, 13 question types, line numbers gutter, crimson error row highlights, click-to-jump line navigation, unique workspace title constraint, fieldwork calendar popover with 1-click quick presets. |
+| **Lifecycle & Versioning** | DRAFT/LIVE/CLOSED state machine, immutable frozen AST, isolated preview mode (`is_test=true`), respondent version pinning ($V_1$), 1-click survey cloning, batch tokens, WhatsApp/Email sharing. |
+| **Respondent Experience** | Mobile-first UI, real-time autosave per question, boolean `show-if` logic, dynamic piping, multi-reason screeners with Back-navigation pruning. |
+| **Advanced Research (Bonus)** | Real-time English ⇄ Hindi (`lang="hi"`) translation, balanced concept rotation (AB vs BA arms), per-respondent matrix row shuffling. |
+| **Observability & Analytics** | Configurable velocity chart (1W–1Y, Line/Bar), configurable distribution chart (Status/Progress/Target/Recency in Donut/Pie/Polar), widget minimize toggles, question-level analytics hub, drop-off funnel report. |
+| **Quality & Export** | Speeder detection (< 1/3 median duration), straight-liner detection, formula injection mitigation, streaming CSV and Excel (.xlsx) export. |
+| **Enterprise Architecture** | Transactional row-level concurrency locking (`SELECT FOR UPDATE`), WCAG AA dark/light themes, Docker Compose, 201/201 automated tests passing (100.0%). |
